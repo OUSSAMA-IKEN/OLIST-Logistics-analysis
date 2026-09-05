@@ -1,0 +1,321 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-family,system-ui);background:transparent;color:var(--color-text-primary)}
+.wrap{padding:.5rem 0}
+.tabs{display:flex;gap:6px;margin-bottom:1rem;flex-wrap:wrap}
+.tab{font-size:12px;padding:5px 14px;border-radius:20px;cursor:pointer;border:0.5px solid var(--color-border-secondary);background:var(--color-background-secondary);color:var(--color-text-secondary);transition:all .15s}
+.tab.on{background:var(--color-background-info);border-color:var(--color-border-info);color:var(--color-text-info)}
+.pnl{display:none}.pnl.on{display:block}
+
+/* milestone cards */
+.ms-list{display:flex;flex-direction:column;gap:10px}
+.ms{border:0.5px solid var(--color-border-tertiary);border-radius:12px;overflow:hidden}
+.ms-head{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer}
+.ms-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;flex-shrink:0}
+.ms-title{font-size:13px;font-weight:500;flex:1}
+.ms-badges{display:flex;gap:5px;flex-wrap:wrap}
+.bd{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:500;white-space:nowrap}
+.c1{background:#E1F5EE;color:#0F6E56}
+.c2{background:#EEEDFE;color:#3C3489}
+.c3{background:#FEF9E7;color:#7D5A00}
+.cp{background:#FEF3E2;color:#854D0E}
+.chev{font-size:10px;color:var(--color-text-tertiary);transition:transform .2s}
+.ms-body{display:none;padding:12px 14px;border-top:0.5px solid var(--color-border-tertiary)}
+.ms-body.open{display:block}
+
+/* step rows */
+.step-row{display:flex;gap:10px;padding:7px 0;border-bottom:0.5px solid var(--color-border-tertiary);align-items:flex-start}
+.step-row:last-child{border-bottom:none}
+.step-action{flex:1;font-size:12px;color:var(--color-text-primary)}
+.step-why{font-size:11px;color:var(--color-text-secondary);margin-top:2px}
+.step-cours{flex-shrink:0;display:flex;flex-direction:column;gap:3px;align-items:flex-end}
+
+/* coverage table */
+.cov-table{width:100%;border-collapse:collapse;font-size:12px}
+.cov-table th{padding:8px 10px;background:var(--color-background-secondary);font-weight:500;color:var(--color-text-secondary);border-bottom:0.5px solid var(--color-border-tertiary);text-align:left}
+.cov-table td{padding:8px 10px;border-bottom:0.5px solid var(--color-border-tertiary);vertical-align:top}
+.cov-table tr:last-child td{border-bottom:none}
+.dot-row{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.dot-chip{font-size:10px;padding:1px 7px;border-radius:8px}
+.lbl{font-size:11px;font-weight:500;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:.05em;margin:12px 0 6px}
+.progress-bar{height:6px;border-radius:3px;background:var(--color-background-secondary);margin-top:4px;overflow:hidden}
+.progress-fill{height:100%;border-radius:3px}
+.legend{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--color-text-secondary)}
+.leg-dot{width:10px;height:10px;border-radius:50%}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="legend">
+  <div class="leg-item"><div class="leg-dot" style="background:#1D9E75"></div>Cours 1 — Data Cleaning</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#534AB7"></div>Cours 2 — Machine Learning</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#BA7517"></div>Cours 3 — Statistiques</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#993C1D"></div>Savoir industriel</div>
+</div>
+
+<div class="tabs">
+  <div class="tab on" onclick="sw(this,'m')">Milestones détaillés</div>
+  <div class="tab" onclick="sw(this,'c')">Couverture par cours</div>
+  <div class="tab" onclick="sw(this,'r')">Ordre de lecture</div>
+</div>
+
+<!-- PANEL 1 : MILESTONES -->
+<div class="pnl on" id="m">
+<div class="ms-list" id="mslist"></div>
+</div>
+
+<!-- PANEL 2 : COVERAGE -->
+<div class="pnl" id="c">
+<div class="lbl">Ce que chaque cours couvre dans le projet</div>
+<table class="cov-table">
+<tr><th>Cours</th><th>Sections couvertes</th><th>Milestones activés</th><th>Couverture</th></tr>
+<tr>
+  <td><span class="bd c3">Cours 3 — Stats</span></td>
+  <td>
+    Types de données · Moyenne/Médiane/Mode<br>
+    Variance/σ/IQR · Descriptif vs Inférentiel<br>
+    Dispersion · Robustesse statistique
+  </td>
+  <td><div class="dot-row"><span class="bd c3">M1</span><span class="bd c3">M2</span><span class="bd c3">M3</span></div></td>
+  <td>
+    <div style="font-size:11px;color:var(--color-text-secondary)">Fondement de tout</div>
+    <div class="progress-bar"><div class="progress-fill" style="width:85%;background:#BA7517"></div></div>
+  </td>
+</tr>
+<tr>
+  <td><span class="bd c1">Cours 1 — Cleaning</span></td>
+  <td>
+    Boxplot · Histogramme · Scatter Plot<br>
+    Z-score · IQR · MAD<br>
+    One-Hot Encoding · Standardisation
+  </td>
+  <td><div class="dot-row"><span class="bd c1">M1</span><span class="bd c1">M3</span></div></td>
+  <td>
+    <div style="font-size:11px;color:var(--color-text-secondary)">Milestone 1 complet</div>
+    <div class="progress-bar"><div class="progress-fill" style="width:100%;background:#1D9E75"></div></div>
+  </td>
+</tr>
+<tr>
+  <td><span class="bd c2">Cours 2 — ML</span></td>
+  <td>
+    Supervised/Unsupervised · Workflow ML<br>
+    Régression · Logistic · Random Forest<br>
+    KNN · Clustering · Neural Networks
+  </td>
+  <td><div class="dot-row"><span class="bd c2">M3</span><span class="bd c2">M4</span><span class="bd c2">M5</span></div></td>
+  <td>
+    <div style="font-size:11px;color:var(--color-text-secondary)">Milestones 4 et 5</div>
+    <div class="progress-bar"><div class="progress-fill" style="width:70%;background:#534AB7"></div></div>
+  </td>
+</tr>
+</table>
+
+<div class="lbl" style="margin-top:16px">Concepts hors cours — enseignés pendant le projet</div>
+<table class="cov-table">
+<tr><th>Concept industriel</th><th>Activé à quel moment</th></tr>
+<tr><td>Corrélation vs Causalité</td><td>Milestone 2 — EDA, analyse des corrélations</td></tr>
+<tr><td>Tests statistiques (T-test)</td><td>Milestone 2 — validation des hypothèses EDA</td></tr>
+<tr><td>Normalisation / StandardScaler</td><td>Milestone 4 — préparation features ML</td></tr>
+<tr><td>Data Leakage</td><td>Milestone 4 — construction du train/test split</td></tr>
+<tr><td>Intervalles de confiance</td><td>Milestone 5 — évaluation des modèles</td></tr>
+<tr><td>RFM / CLV</td><td>Milestone 3 — Feature Engineering</td></tr>
+</table>
+</div>
+
+<!-- PANEL 3 : READING ORDER -->
+<div class="pnl" id="r">
+<div class="lbl">Comment lire les cours en parallèle du projet</div>
+<table class="cov-table">
+<tr><th>Moment</th><th>Tu travailles sur...</th><th>Tu lis dans quel cours</th><th>Section exacte</th></tr>
+<tr>
+  <td><span class="bd c3">Maintenant</span></td>
+  <td>Milestone 1 — Data Cleaning</td>
+  <td><span class="bd c3">Cours 3</span> d'abord</td>
+  <td>Sections 2, 3, 4 — Types de données, Moyenne/Médiane, Dispersion</td>
+</tr>
+<tr>
+  <td><span class="bd c3">Maintenant</span></td>
+  <td>Milestone 1 — Outliers</td>
+  <td><span class="bd c1">Cours 1</span> ensuite</td>
+  <td>Partie 2 (Boxplot/Histo/Scatter) + Partie 3 (Z-score/IQR/MAD)</td>
+</tr>
+<tr>
+  <td style="color:var(--color-text-tertiary)">M2 — EDA</td>
+  <td>Analyse distributions, corrélations</td>
+  <td><span class="bd c3">Cours 3</span></td>
+  <td>Section 1 (Descriptif) + Section 5 (Visualisation)</td>
+</tr>
+<tr>
+  <td style="color:var(--color-text-tertiary)">M3 — Feature Eng.</td>
+  <td>RFM, CLV, Encoding</td>
+  <td><span class="bd c1">Cours 1</span> + <span class="bd c3">Cours 3</span></td>
+  <td>C1 : Partie 4 (Encoding) · C3 : Section 3 (Tendance centrale)</td>
+</tr>
+<tr>
+  <td style="color:var(--color-text-tertiary)">M4 — ML Prep</td>
+  <td>Train/Test, features, normalisation</td>
+  <td><span class="bd c2">Cours 2</span></td>
+  <td>Partie 2 Section A (Supervised) + Partie 3 Section A (Régression)</td>
+</tr>
+<tr>
+  <td style="color:var(--color-text-tertiary)">M5 — Modèles ML</td>
+  <td>Churn, Forecast, Clustering</td>
+  <td><span class="bd c2">Cours 2</span></td>
+  <td>Partie 4 (Classification) + Partie 3 Section B (Random Forest)</td>
+</tr>
+</table>
+<div style="font-size:11px;color:var(--color-text-tertiary);margin-top:10px">Règle : lis la section du cours JUSTE AVANT de coder cette partie. Pas en avance — tu oublieras. Pas après — tu coderas sans comprendre.</div>
+</div>
+
+</div>
+
+<script>
+const milestones = [
+  {
+    num:"M0", color:"#185FA5", title:"Setup & Dataset",
+    badges:[{l:"Industriel",c:"cp"}],
+    steps:[
+      {action:"Télécharger le dataset Olist (9 CSV)", why:"Identifier les sources de données réelles", cours:[{l:"Industriel",c:"cp"}]},
+      {action:"Créer la structure de dossiers du projet", why:"Organisation professionnelle — reproductibilité", cours:[{l:"Industriel",c:"cp"}]},
+      {action:"Initialiser Git + premier commit", why:"Versioning — pratique industry standard", cours:[{l:"Industriel",c:"cp"}]},
+      {action:"Audit initial : shape, dtypes, nulls par table", why:"Avant de toucher quoi que ce soit", cours:[{l:"C3 §1",c:"c3"},{l:"Industriel",c:"cp"}]}
+    ]
+  },
+  {
+    num:"M1", color:"#1D9E75", title:"Data Cleaning",
+    badges:[{l:"Cours 1 — complet",c:"c1"},{l:"Cours 3 §2,3,4",c:"c3"}],
+    steps:[
+      {action:"Identifier les types de chaque colonne", why:"Cours 3 §2 — Nominale/Ordinale/Discrète/Continue", cours:[{l:"C3 §2",c:"c3"}]},
+      {action:"Analyser les valeurs manquantes par table", why:"Cours 3 §3 — distinguer null métier vs erreur", cours:[{l:"C3 §3",c:"c3"},{l:"C1 P1",c:"c1"}]},
+      {action:"Tracer les boxplots (price, freight_value)", why:"Cours 1 Partie 2A — visualisation outliers", cours:[{l:"C1 P2A",c:"c1"},{l:"C3 §4",c:"c3"}]},
+      {action:"Tracer les histogrammes (règle de Sturges)", why:"Cours 1 Partie 2B — distribution des variables", cours:[{l:"C1 P2B",c:"c1"}]},
+      {action:"Scatter plot prix vs fret — anomalies bivariées", why:"Cours 1 Partie 2C — relations entre variables", cours:[{l:"C1 P2C",c:"c1"}]},
+      {action:"Appliquer Z-score sur les prix", why:"Cours 1 §3A + Cours 3 §4 — σ comme unité de distance", cours:[{l:"C1 P3A",c:"c1"},{l:"C3 §4",c:"c3"}]},
+      {action:"Appliquer IQR — calculer les bornes", why:"Cours 1 §3B + Cours 3 §4 — méthode robuste", cours:[{l:"C1 P3B",c:"c1"},{l:"C3 §4",c:"c3"}]},
+      {action:"Appliquer MAD sur volumes de commandes", why:"Cours 1 §3C — distribution très asymétrique", cours:[{l:"C1 P3C",c:"c1"}]},
+      {action:"Décider : supprimer vs isoler vs imputer", why:"Raisonnement métier — pas mécanique", cours:[{l:"C3 §3",c:"c3"},{l:"Industriel",c:"cp"}]},
+      {action:"Standardiser formats (dates, catégories)", why:"Cours 1 Partie 2F — cohérence des données", cours:[{l:"C1 P2F",c:"c1"}]},
+      {action:"Exporter olist_clean.csv dans data/processed/", why:"Séparer raw et processed — principe immuabilité", cours:[{l:"Industriel",c:"cp"}]}
+    ]
+  },
+  {
+    num:"M2", color:"#534AB7", title:"EDA — Exploratory Data Analysis",
+    badges:[{l:"Cours 3 §1,5",c:"c3"},{l:"Cours 1 Partie 2",c:"c1"}],
+    steps:[
+      {action:"Statistiques descriptives globales (describe)", why:"Cours 3 §3 — Moyenne/Médiane/Mode sur toutes colonnes", cours:[{l:"C3 §3",c:"c3"}]},
+      {action:"Analyse des distributions univariées", why:"Cours 3 §4 + C1 P2B — comprendre l'étalement", cours:[{l:"C3 §4",c:"c3"},{l:"C1 P2B",c:"c1"}]},
+      {action:"Matrice de corrélation + heatmap", why:"Cours 3 §4 — relations entre variables numériques", cours:[{l:"C3 §4",c:"c3"},{l:"Industriel",c:"cp"}]},
+      {action:"Analyse temporelle : CA mensuel, saisonnalité", why:"Cours 3 §1 — analyse descriptive temporelle", cours:[{l:"C3 §1",c:"c3"},{l:"Industriel",c:"cp"}]},
+      {action:"Top produits / catégories (Pareto 80/20)", why:"KPI thinking — industriel", cours:[{l:"Industriel",c:"cp"}]},
+      {action:"Analyse géographique par état brésilien", why:"Segmentation — cours 3 §2 types données", cours:[{l:"C3 §2",c:"c3"}]},
+      {action:"Heatmap jour × heure des commandes", why:"Saisonnalité court terme", cours:[{l:"C1 P2B",c:"c1"}]},
+      {action:"Formuler 5 hypothèses business à tester", why:"Cours 3 §1 — descriptif vers inférentiel", cours:[{l:"C3 §1",c:"c3"},{l:"Industriel",c:"cp"}]}
+    ]
+  },
+  {
+    num:"M3", color:"#BA7517", title:"Feature Engineering",
+    badges:[{l:"Cours 1 Partie 4",c:"c1"},{l:"Cours 3 §3",c:"c3"}],
+    steps:[
+      {action:"Calculer Revenu = prix × quantité", why:"Variable dérivée de base — KPI fondamental", cours:[{l:"C3 §3",c:"c3"}]},
+      {action:"Calculer panier moyen par client", why:"Cours 3 §3 — moyenne pondérée par client", cours:[{l:"C3 §3",c:"c3"}]},
+      {action:"Calculer délai de livraison (jours)", why:"Variable temporelle dérivée", cours:[{l:"Industriel",c:"cp"}]},
+      {action:"Construire le score RFM (Recency/Frequency/Monetary)", why:"Segmentation client professionnelle", cours:[{l:"C3 §3",c:"c3"},{l:"Industriel",c:"cp"}]},
+      {action:"Calculer CLV (Customer Lifetime Value)", why:"KPI de rétention — valeur long terme client", cours:[{l:"C3 §3",c:"c3"},{l:"Industriel",c:"cp"}]},
+      {action:"Créer variables temporelles (mois, trimestre, jour semaine)", why:"Features pour le modèle de forecast", cours:[{l:"Industriel",c:"cp"}]},
+      {action:"One-Hot Encoding sur payment_type, customer_state", why:"Cours 1 Partie 4 — préparer pour ML", cours:[{l:"C1 P4",c:"c1"}]},
+      {action:"Créer flag is_outlier pour les prix extrêmes", why:"Garder l'info sans polluer le modèle", cours:[{l:"Industriel",c:"cp"}]},
+      {action:"Exporter olist_features.csv dans data/processed/", why:"Séparation claire cleaning vs features", cours:[{l:"Industriel",c:"cp"}]}
+    ]
+  },
+  {
+    num:"M4", color:"#993C1D", title:"Dashboard Power BI",
+    badges:[{l:"KPIs",c:"cp"},{l:"Storytelling",c:"cp"}],
+    steps:[
+      {action:"Importer olist_exports/ dans Power BI", why:"Connecter les données préparées au reporting", cours:[{l:"Industriel",c:"cp"}]},
+      {action:"Créer les KPIs principaux (CA, commandes, panier moyen)", why:"Business Understanding — KPI thinking", cours:[{l:"C3 §3",c:"c3"},{l:"Industriel",c:"cp"}]},
+      {action:"Line chart — évolution CA mensuel", why:"Visualisation temporelle — saisonnalité", cours:[{l:"C1 P2B",c:"c1"}]},
+      {action:"Bar chart — Top produits et catégories", why:"Pareto 20/80 visuel", cours:[{l:"Industriel",c:"cp"}]},
+      {action:"Heatmap — jour vs heure de commande", why:"Cours 1 P2B — densité visuelle", cours:[{l:"C1 P2B",c:"c1"}]},
+      {action:"Carte géographique — commandes par état", why:"Segmentation géographique", cours:[{l:"Industriel",c:"cp"}]},
+      {action:"Graphique RFM — segments clients", why:"Feature Engineering M3 → visualisé", cours:[{l:"Industriel",c:"cp"}]},
+      {action:"Analyse cohortes clients", why:"Rétention et fidélisation", cours:[{l:"Industriel",c:"cp"}]}
+    ]
+  },
+  {
+    num:"M5", color:"#534AB7", title:"Machine Learning",
+    badges:[{l:"Cours 2 — complet",c:"c2"},{l:"Cours 1 Partie 3",c:"c1"}],
+    steps:[
+      {action:"Train/Test split stratifié", why:"Cours 2 Partie 2 §A — workflow ML", cours:[{l:"C2 P2A",c:"c2"}]},
+      {action:"Normalisation des features (StandardScaler)", why:"KNN et Neural Networks l'exigent", cours:[{l:"C2 P4B",c:"c2"},{l:"Industriel",c:"cp"}]},
+      {action:"Modèle 1 : Prédiction churn (Logistic Regression)", why:"Cours 2 Partie 4 §A — classification binaire", cours:[{l:"C2 P4A",c:"c2"}]},
+      {action:"Modèle 2 : Churn avec Random Forest", why:"Cours 2 Partie 3 §B — ensemble learning", cours:[{l:"C2 P3B",c:"c2"}]},
+      {action:"Modèle 3 : Forecast ventes (Prophet/ARIMA)", why:"Cours 2 Partie 3 §A — régression temporelle", cours:[{l:"C2 P3A",c:"c2"}]},
+      {action:"Modèle 4 : Clustering RFM (K-Means)", why:"Cours 2 Partie 2 §B — unsupervised", cours:[{l:"C2 P2B",c:"c2"}]},
+      {action:"Évaluation : Accuracy, F1, Matrice confusion", why:"Cours 2 — métriques classification", cours:[{l:"C2 P4",c:"c2"}]},
+      {action:"Feature importance (Random Forest)", why:"Comprendre quelles variables prédisent le churn", cours:[{l:"C2 P3B",c:"c2"}]},
+      {action:"Bonus : Système de recommandation", why:"Cours 2 — Unsupervised + cosine similarity", cours:[{l:"C2 P2B",c:"c2"},{l:"Industriel",c:"cp"}]}
+    ]
+  },
+  {
+    num:"M6", color:"#185FA5", title:"Présentation Finale",
+    badges:[{l:"Storytelling",c:"cp"},{l:"Communication",c:"cp"}],
+    steps:[
+      {action:"Rédiger le rapport : contexte, méthodologie, résultats", why:"Documentation professionnelle", cours:[{l:"Industriel",c:"cp"}]},
+      {action:"Sélectionner les 5 insights les plus impactants", why:"Storytelling — ne pas noyer le message", cours:[{l:"Industriel",c:"cp"}]},
+      {action:"Formuler des recommandations business concrètes", why:"Le DA doit proposer des actions, pas que décrire", cours:[{l:"Industriel",c:"cp"}]},
+      {action:"Préparer la démo Power BI", why:"Communication visuelle des résultats", cours:[{l:"Industriel",c:"cp"}]},
+      {action:"Documenter le README final", why:"Portfolio GitHub — visible par les recruteurs", cours:[{l:"Industriel",c:"cp"}]}
+    ]
+  }
+];
+
+function renderMilestones(){
+  const c = document.getElementById('mslist');
+  c.innerHTML = milestones.map((m,i)=>`
+    <div class="ms">
+      <div class="ms-head" onclick="tog(${i})">
+        <div class="ms-num" style="background:${m.color}">${m.num}</div>
+        <div class="ms-title">${m.title}</div>
+        <div class="ms-badges">${m.badges.map(b=>`<span class="bd ${b.c}">${b.l}</span>`).join('')}</div>
+        <div class="chev" id="ch${i}">▼</div>
+      </div>
+      <div class="ms-body" id="bd${i}">
+        ${m.steps.map(s=>`
+          <div class="step-row">
+            <div style="flex:1">
+              <div class="step-action">→ ${s.action}</div>
+              <div class="step-why">${s.why}</div>
+            </div>
+            <div class="step-cours">${s.cours.map(c=>`<span class="bd ${c.c}">${c.l}</span>`).join('')}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function tog(i){
+  const b=document.getElementById('bd'+i);
+  const c=document.getElementById('ch'+i);
+  const o=b.classList.toggle('open');
+  c.style.transform=o?'rotate(180deg)':'';
+}
+
+function sw(el,id){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('.pnl').forEach(p=>p.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById(id).classList.add('on');
+}
+
+renderMilestones();
+tog(1); // open M1 by default
+</script>
+</body>
+</html>

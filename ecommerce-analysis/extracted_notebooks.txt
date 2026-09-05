@@ -1,0 +1,2489 @@
+
+--- 01_data_audit.ipynb ---
+
+[CODE]
+# ============================================================
+# 01_data_audit.ipynb — AUDIT COMPLET DES DONNÉES
+# Objectif : observer, documenter, ne rien modifier
+# Cours activé : Cours 3 §2 — types de données
+# Cours activé : Cours 1 P1 — identifier les problèmes
+# ============================================================
+
+import sys
+sys.path.append('..')
+from src.utils import *
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 1 — CHARGEMENT DES TABLES BRUTES")
+print("   Source : data/raw/ — lecture seule")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+orders    = pd.read_csv('../data/raw/olist_orders_dataset.csv')
+items     = pd.read_csv('../data/raw/olist_order_items_dataset.csv')
+payments  = pd.read_csv('../data/raw/olist_order_payments_dataset.csv')
+reviews   = pd.read_csv('../data/raw/olist_order_reviews_dataset.csv')
+products  = pd.read_csv('../data/raw/olist_products_dataset.csv')
+customers = pd.read_csv('../data/raw/olist_customers_dataset.csv')
+sellers   = pd.read_csv('../data/raw/olist_sellers_dataset.csv')
+geo       = pd.read_csv('../data/raw/olist_geolocation_dataset.csv')
+transl    = pd.read_csv('../data/raw/product_category_name_translation.csv')
+
+# Résumé rapide du chargement
+print(f"{'Table':<15} | {'Lignes':>8} | {'Colonnes':>8}")
+print("-" * 40)
+for name, df in [('orders',orders),('items',items),
+                 ('payments',payments),('reviews',reviews),
+                 ('products',products),('customers',customers),
+                 ('sellers',sellers),('geo',geo),('transl',transl)]:
+    print(f"  {name:<15} | {len(df):>8} | {df.shape[1]:>8}")
+
+print("\n✓ Toutes les tables chargées — aucune modification")
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 2 — AUDIT STRUCTURE : TOUTES LES TABLES")
+print("   Cours 3 §2 — identifier les types de données")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# audit_table() est dans utils.py
+# Affiche : dimensions, types colonnes, aperçu 2 lignes
+for name, df in [('orders',orders),('items',items),
+                 ('payments',payments),('reviews',reviews),
+                 ('products',products),('customers',customers),
+                 ('sellers',sellers),('geo',geo),('transl',transl)]:
+    audit_table(name, df)
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 3 — RAPPORT DES VALEURS MANQUANTES")
+print("   Cours 1 P1 — types de problèmes dans les données")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# rapport_nulls() est dans utils.py
+# Affiche : nulls par colonne + pourcentage + flag si >5%
+rapport_nulls({
+    'orders':    orders,
+    'items':     items,
+    'payments':  payments,
+    'reviews':   reviews,
+    'products':  products,
+    'customers': customers,
+    'sellers':   sellers,
+    'geo':       geo,
+    'transl':    transl
+})
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 4 — AUDIT DOUBLONS : TOUTES LES TABLES")
+print("   Cours 1 P1 — anomalies et incohérences")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+print(f"{'Table':<15} | {'Doublons':>10} | {'% total':>8} | {'Statut':>10}")
+print("-" * 55)
+
+for name, df in [('orders',orders),('items',items),
+                 ('payments',payments),('reviews',reviews),
+                 ('products',products),('customers',customers),
+                 ('sellers',sellers),('geo',geo),('transl',transl)]:
+    n_dup = df.duplicated().sum()
+    pct   = n_dup / len(df) * 100
+    statut = "✓ OK" if n_dup == 0 else "⚠️ À traiter"
+    print(f"  {name:<15} | {n_dup:>10} | {pct:>7.2f}% | {statut:>10}")
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 5 — AUDIT TYPES : CLASSIFICATION PAR COLONNE")
+print("   Cours 3 §2 — Nominale / Ordinale / Discrète / Continue")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# Classification manuelle des colonnes par type statistique
+# Cours 3 §2 : le type pandas ≠ le type statistique
+# Ex : review_score est int64 mais c'est une variable ORDINALE
+
+classification = {
+    'orders': {
+        'order_id':                    ('object',  'Identifiant — clé primaire'),
+        'customer_id':                 ('object',  'Identifiant — clé étrangère'),
+        'order_status':                ('object',  'Nominale — catégories sans ordre'),
+        'order_purchase_timestamp':    ('object',  'Continue — date à convertir'),
+        'order_approved_at':           ('object',  'Continue — date à convertir'),
+        'order_delivered_carrier_date':('object',  'Continue — date à convertir'),
+        'order_delivered_customer_date':('object', 'Continue — date à convertir'),
+        'order_estimated_delivery_date':('object', 'Continue — date à convertir'),
+    },
+    'items': {
+        'order_id':          ('object',  'Identifiant — clé étrangère'),
+        'order_item_id':     ('int64',   'Discrète — numéro article dans commande'),
+        'product_id':        ('object',  'Identifiant — clé étrangère'),
+        'seller_id':         ('object',  'Identifiant — clé étrangère'),
+        'shipping_limit_date':('object', 'Continue — date à convertir'),
+        'price':             ('float64', 'Continue — à analyser outliers IQR'),
+        'freight_value':     ('float64', 'Continue — à analyser outliers IQR'),
+    },
+    'payments': {
+        'order_id':              ('object',  'Identifiant — clé étrangère'),
+        'payment_sequential':    ('int64',   'Discrète — ordre des paiements'),
+        'payment_type':          ('object',  'Nominale — à convertir category'),
+        'payment_installments':  ('int64',   'Discrète — nombre de mensualités'),
+        'payment_value':         ('float64', 'Continue — montant payé'),
+    },
+    'reviews': {
+        'review_id':              ('object', 'Identifiant — clé primaire'),
+        'order_id':               ('object', 'Identifiant — clé étrangère'),
+        'review_score':           ('int64',  'Ordinale — 1 à 5, ordre logique'),
+        'review_comment_title':   ('object', 'Texte — optionnel, nulls normaux'),
+        'review_comment_message': ('object', 'Texte — optionnel, nulls normaux'),
+        'review_creation_date':   ('object', 'Continue — date à convertir'),
+        'review_answer_timestamp':('object', 'Continue — date à convertir'),
+    },
+    'products': {
+        'product_id':                  ('object',  'Identifiant — clé primaire'),
+        'product_category_name':       ('object',  'Nominale — à imputer + category'),
+        'product_name_lenght':         ('float64', 'Discrète — longueur nom'),
+        'product_description_lenght':  ('float64', 'Discrète — longueur description'),
+        'product_photos_qty':          ('float64', 'Discrète — nombre de photos'),
+        'product_weight_g':            ('float64', 'Continue — poids en grammes'),
+        'product_length_cm':           ('float64', 'Continue — dimension'),
+        'product_height_cm':           ('float64', 'Continue — dimension'),
+        'product_width_cm':            ('float64', 'Continue — dimension'),
+    }
+}
+
+for table, cols in classification.items():
+    print(f"--- {table.upper()} ---")
+    print(f"  {'Colonne':<35} {'Type pandas':<12} {'Type statistique'}")
+    print(f"  {'-'*75}")
+    for col, (dtype, stat_type) in cols.items():
+        print(f"  {col:<35} {dtype:<12} {stat_type}")
+    print()
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 6 — AUDIT SPÉCIFIQUE : orders")
+print("   Diagnostic des nulls sur les dates de livraison")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+print("--- Nulls par colonne ---")
+print(orders.isnull().sum())
+
+print("\n--- Statut des commandes SANS date de livraison ---")
+print(orders[orders['order_delivered_customer_date'].isnull()]
+      ['order_status'].value_counts())
+
+delivered_sans_date = orders[
+    (orders['order_status'] == 'delivered') &
+    (orders['order_delivered_customer_date'].isnull())
+]
+print(f"\n⚠️  Commandes 'delivered' sans date : {len(delivered_sans_date)}")
+print(f"   → Erreurs réelles à supprimer dans 02_data_cleaning")
+
+print(f"\n--- Distribution order_status ---")
+print(orders['order_status'].value_counts())
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 7 — AUDIT SPÉCIFIQUE : products")
+print("   Diagnostic des nulls et impact sur commandes")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+print("--- Nulls par colonne ---")
+print(products.isnull().sum())
+
+sans_categorie = products[products['product_category_name'].isnull()]
+print(f"\nProduits sans catégorie : {len(sans_categorie)}")
+
+produits_ids = sans_categorie['product_id'].tolist()
+commandes_affectees = items[items['product_id'].isin(produits_ids)]
+print(f"Commandes affectées    : {len(commandes_affectees)}")
+print(f"→ Suppression impossible — imputer 'unknown' dans 02_data_cleaning")
+
+print(f"\n--- Produits sans dimensions physiques ---")
+dims = ['product_weight_g','product_length_cm',
+        'product_height_cm','product_width_cm']
+for col in dims:
+    print(f"  {col:<30} {products[col].isnull().sum()} nulls")
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 8 — AUDIT SPÉCIFIQUE : reviews")
+print("   Confirmer que les nulls commentaires sont intentionnels")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+print("--- Nulls par colonne ---")
+print(reviews.isnull().sum())
+
+print(f"\nreview_score nulls : {reviews['review_score'].isnull().sum()}")
+print(f"→ 0 null sur le score = normal, commentaire est optionnel")
+
+print(f"\n--- Distribution review_score ---")
+print(reviews['review_score'].value_counts().sort_index())
+
+total = len(reviews)
+score5 = (reviews['review_score'] == 5).sum()
+print(f"\nScore 5 : {score5} ({score5/total*100:.1f}%) "
+      f"→ dataset biaisé positivement")
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 9 — AUDIT SPÉCIFIQUE : items")
+print("   Statistiques prix et fret — aperçu avant outliers")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+print("--- Statistiques prix ---")
+print(items['price'].describe())
+
+print("\n--- Statistiques freight_value ---")
+print(items['freight_value'].describe())
+
+# Ratio items/orders — combien d'articles par commande en moyenne
+ratio = len(items) / len(orders)
+print(f"\nRatio items/orders : {ratio:.2f} articles par commande en moyenne")
+
+# Cas fret > prix — aperçu avant traitement
+fret_sup = (items['freight_value'] > items['price']).sum()
+print(f"Cas fret > prix    : {fret_sup} ({fret_sup/len(items)*100:.1f}%)")
+print(f"→ Anomalie bivariée à flaguer dans 02_data_cleaning")
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 10 — AUDIT SPÉCIFIQUE : customers")
+print("   Problème customer_id vs customer_unique_id")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+n_ids    = customers['customer_id'].nunique()
+n_unique = customers['customer_unique_id'].nunique()
+diff     = n_ids - n_unique
+
+print(f"customer_id uniques        : {n_ids}")
+print(f"customer_unique_id uniques : {n_unique}")
+print(f"Différence                 : {diff}")
+
+if diff > 0:
+    print(f"\n⚠️  {diff} customer_id correspondent au même client physique")
+    print(f"   → Utiliser customer_unique_id pour le RFM dans 05_feature_engineering")
+else:
+    print(f"\n✓ Pas de doublon client")
+
+print(f"\n--- Distribution customer_state (top 10) ---")
+print(customers['customer_state'].value_counts().head(10))
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 11 — AUDIT SPÉCIFIQUE : geolocation")
+print("   Problème cardinalité — plusieurs coords par zip")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+n_total    = len(geo)
+n_zip      = geo['geolocation_zip_code_prefix'].nunique()
+ratio_geo  = n_total / n_zip
+
+print(f"Lignes totales     : {n_total:>10}")
+print(f"Zip codes uniques  : {n_zip:>10}")
+print(f"Ratio moyen        : {ratio_geo:>10.1f} coordonnées par zip")
+print(f"\n⚠️  Jointure directe → multiplication des lignes par {ratio_geo:.0f}")
+print(f"   → Dédupliquer par zip (médiane) dans 03_data_support")
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 12 — RAPPORT DE DÉCISION FINAL")
+print("   Synthèse de l'audit — plan d'action pour cleaning")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+decisions = [
+    ("orders",    "Convertir dates",            "02_data_cleaning"),
+    ("orders",    "Supprimer 8 delivered/null", "02_data_cleaning"),
+    ("orders",    "order_status → category",    "02_data_cleaning"),
+    ("items",     "shipping_limit_date → date", "02_data_cleaning"),
+    ("items",     "IQR sur price + freight",    "02_data_cleaning"),
+    ("items",     "Flag fret > prix",           "02_data_cleaning"),
+    ("payments",  "payment_type → category",    "02_data_cleaning"),
+    ("payments",  "Flag 'not_defined'",         "02_data_cleaning"),
+    ("reviews",   "Dates → datetime",           "02_data_cleaning"),
+    ("reviews",   "Nulls commentaires → OK",    "02_data_cleaning"),
+    ("products",  "610 catégories → unknown",   "02_data_cleaning"),
+    ("products",  "Dimensions → médiane",       "02_data_cleaning"),
+    ("products",  "Merge translation EN",       "02_data_cleaning"),
+    ("customers", "customer_id vs unique_id",   "03_data_support"),
+    ("customers", "zip_code → string",          "03_data_support"),
+    ("geo",       "Dédupliquer par zip",        "03_data_support"),
+    ("sellers",   "seller_state → category",    "03_data_support"),
+]
+
+print(f"{'Table':<12} | {'Action':<35} | {'Notebook'}")
+print("-" * 65)
+for table, action, notebook in decisions:
+    print(f"  {table:<12} | {action:<35} | {notebook}")
+
+print(f"\n✓ Audit terminé — {len(decisions)} actions identifiées")
+print(f"✓ Aucune donnée modifiée dans ce notebook")
+print(f"\n→ Exécuter ensuite : 02_data_cleaning.ipynb")
+print(f"→ Puis             : 03_data_support.ipynb")
+
+--- 02_data_cleaning.ipynb ---
+
+[CODE]
+# ============================================================
+# 02_data_cleaning.ipynb — NETTOYAGE TABLES DE FAITS
+# Tables traitées : orders, items, payments, reviews, products
+# Source : data/raw/ → data/processed/
+# Cours activé : Cours 1 complet + Cours 3 §2,3,4
+# ============================================================
+
+import sys
+sys.path.append('..')
+from src.utils import *
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 1 — CHARGEMENT TABLES DE FAITS")
+print("   Source : data/raw/ — lecture seule")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+orders   = pd.read_csv('../data/raw/olist_orders_dataset.csv')
+items    = pd.read_csv('../data/raw/olist_order_items_dataset.csv')
+payments = pd.read_csv('../data/raw/olist_order_payments_dataset.csv')
+reviews  = pd.read_csv('../data/raw/olist_order_reviews_dataset.csv')
+products = pd.read_csv('../data/raw/olist_products_dataset.csv')
+transl   = pd.read_csv('../data/raw/product_category_name_translation.csv')
+
+print(f"{'Table':<12} | {'Lignes':>8} | {'Colonnes':>8}")
+print("-" * 38)
+for name, df in [('orders',orders),('items',items),('payments',payments),
+                 ('reviews',reviews),('products',products),('transl',transl)]:
+    print(f"  {name:<12} | {len(df):>8} | {df.shape[1]:>8}")
+
+print("\n✓ Tables de faits chargées — aucune modification encore")
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 2 — NETTOYAGE : orders")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# Conversion des 5 colonnes dates en datetime
+# Cours 1 P2F : standardiser les formats de dates
+orders = convertir_dates(orders, [
+    'order_purchase_timestamp',
+    'order_approved_at',
+    'order_delivered_carrier_date',
+    'order_delivered_customer_date',
+    'order_estimated_delivery_date'
+])
+
+# Supprimer les 8 commandes 'delivered' sans date de livraison
+# Audit étape 6 : erreurs réelles — incohérence statut/date
+# Les autres nulls dates = nulls métier (commandes non livrées) → gardés
+avant = len(orders)
+orders = orders[~(
+    (orders['order_status'] == 'delivered') &
+    (orders['order_delivered_customer_date'].isnull())
+)]
+print(f"✓ Lignes supprimées (delivered sans date) : {avant - len(orders)}")
+print(f"✓ orders restantes                        : {len(orders)}")
+
+# order_status → variable nominale → category
+# Cours 3 §2 : pas de calcul numérique sur une variable nominale
+orders = convertir_categories(orders, ['order_status'])
+
+# Vérification finale
+print(f"\n✓ Vérification nulls orders :")
+print(orders.isnull().sum())
+print(f"\n✓ Distribution order_status :")
+print(orders['order_status'].value_counts())
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 3 — NETTOYAGE : order_items")
+print("   boxplot + scatter")
+print("   IQR sur données skewed")
+print("   dispersion et outliers")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# Convertir shipping_limit_date en datetime
+items = convertir_dates(items, ['shipping_limit_date'])
+
+# Vérification cohérence — prix et fret ne peuvent pas être négatifs
+print("--- Vérification cohérence ---")
+print(f"Prix négatifs     : {(items['price'] < 0).sum()}")
+print(f"Fret négatifs     : {(items['freight_value'] < 0).sum()}")
+print(f"Prix égaux à 0    : {(items['price'] == 0).sum()}")
+
+# IQR sur price
+# Méthode IQR choisie car prix = distribution skewed à droite
+# Cours 3 §4 : médiane robuste sur données asymétriques
+# Cours 1 P3B : IQR = Q3 - Q1, bornes à 1.5×IQR
+items, b_low_p, b_high_p = detecter_outliers_iqr(items, 'price')
+
+# IQR sur freight_value
+items, b_low_f, b_high_f = detecter_outliers_iqr(items, 'freight_value')
+
+# Anomalie bivariée : fret > prix du produit
+# Cours 1 P2C : anomalie visible seulement dans la relation entre 2 variables
+items['fret_sup_prix'] = items['freight_value'] > items['price']
+print(f"✓ Cas fret > prix : {items['fret_sup_prix'].sum()} "
+      f"({items['fret_sup_prix'].mean()*100:.1f}%)")
+
+# Flag combiné pour visualisation
+items['any_outlier'] = (
+    items['price_is_outlier'] | items['freight_value_is_outlier']
+)
+
+print(f"\n✓ Vérification nulls items :")
+print(items.isnull().sum())
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 4 — NETTOYAGE : order_payments")
+print("   Cours 3 §2 — payment_type = variable nominale")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# payment_type → variable nominale → category
+payments = convertir_categories(payments, ['payment_type'])
+
+# 3 lignes 'not_defined' → flag sans suppression
+# Règle pro : isoler avant de décider, ne pas supprimer aveuglément
+payments['payment_is_unknown'] = payments['payment_type'] == 'not_defined'
+print(f"✓ Paiements 'not_defined' flaggés : "
+      f"{payments['payment_is_unknown'].sum()}")
+
+print(f"\n✓ Distribution payment_type :")
+print(payments['payment_type'].value_counts())
+
+print(f"\n✓ Vérification nulls payments :")
+print(payments.isnull().sum())
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 5 — NETTOYAGE : order_reviews")
+print("   Cours 3 §2 — review_score = variable ordinale")
+print("   Nulls commentaires = intentionnels → gardés")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# Convertir les dates en datetime
+reviews = convertir_dates(reviews, [
+    'review_creation_date',
+    'review_answer_timestamp'
+])
+
+# review_score : 0 null confirmé par l'audit → aucun traitement
+print(f"✓ review_score nulls : {reviews['review_score'].isnull().sum()}")
+print(f"  Gardé en int64 — variable ordinale, médiane valide")
+print(f"  Moyenne = approximation acceptable (compromis pragmatique)")
+
+# Nulls commentaires → intentionnels, on ne touche pas
+# Cours 3 §2 : ces colonnes texte sont optionnelles par design
+print(f"\n✓ Nulls commentaires conservés (optionnels par design) :")
+print(f"  review_comment_title   : "
+      f"{reviews['review_comment_title'].isnull().sum()}")
+print(f"  review_comment_message : "
+      f"{reviews['review_comment_message'].isnull().sum()}")
+
+print(f"\n✓ Distribution review_score :")
+print(reviews['review_score'].value_counts().sort_index())
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 6 — NETTOYAGE : products")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# 610 produits sans catégorie → imputer 'unknown'
+# Audit étape 7 : 1603 commandes attachées → suppression impossible
+products['product_category_name'] = (
+    products['product_category_name'].fillna('unknown')
+)
+print(f"✓ Catégories nulles → 'unknown'")
+print(f"  Nulls restants : {products['product_category_name'].isnull().sum()}")
+
+# Dimensions physiques (2 nulls) → médiane
+# Cours 3 §3 : médiane robuste aux outliers
+# Un produit très lourd ne tire pas la valeur d'imputation vers le haut
+products = imputer_mediane(products, [
+    'product_weight_g',
+    'product_length_cm',
+    'product_height_cm',
+    'product_width_cm'
+])
+
+# Colonnes texte (610 nulls) → médiane
+products = imputer_mediane(products, [
+    'product_name_lenght',
+    'product_description_lenght',
+    'product_photos_qty'
+])
+
+# product_category_name → variable nominale → category
+products = convertir_categories(products, ['product_category_name'])
+
+print(f"\n✓ Vérification nulls products :")
+print(products.isnull().sum())
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 7 — MERGE : products + translation")
+print("   Traduire catégories portugais → anglais")
+print("   Nécessaire pour lisibilité Power BI")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+avant_cols = products.shape[1]
+
+products = products.merge(
+    transl,
+    on='product_category_name',
+    how='left'
+)
+
+# 'unknown' et catégories sans traduction → imputer 'unknown'
+products['product_category_name_english'] = (
+    products['product_category_name_english'].fillna('unknown')
+)
+
+print(f"✓ Colonnes avant merge : {avant_cols}")
+print(f"✓ Colonnes après merge : {products.shape[1]}")
+print(f"✓ Catégories traduites : "
+      f"{products['product_category_name_english'].nunique()}")
+print(f"\n✓ Exemple traductions :")
+print(products[['product_category_name',
+                'product_category_name_english']]
+      .drop_duplicates()
+      .head(8)
+      .to_string(index=False))
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 8 — VISUALISATIONS : distributions")
+print("   Cours 1 P2A — Boxplot")
+print("   Cours 1 P2B — Histogramme (règle de Sturges)")
+print("   Cours 1 P2C — Scatter plot anomalies bivariées")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+import os
+os.makedirs('../reports/figures', exist_ok=True)
+
+# Boxplot + histogramme des prix
+print("--- Visualisation : price ---")
+plot_boxplot_hist(
+    items, 'price',
+    save_path='../reports/figures/01_price_distribution.png',
+    xlim=(0, 500)
+)
+
+# Boxplot + histogramme du fret
+print("--- Visualisation : freight_value ---")
+plot_boxplot_hist(
+    items, 'freight_value',
+    save_path='../reports/figures/02_freight_distribution.png',
+    xlim=(0, 80)
+)
+
+# Scatter plot prix vs fret — anomalies bivariées
+# Cours 1 P2C : anomalie bivariée = normale seule, anormale en relation
+print("--- Visualisation : scatter prix vs fret ---")
+plot_scatter_outliers(
+    items, 'price', 'freight_value',
+    flag_col='any_outlier',
+    save_path='../reports/figures/03_scatter_price_freight.png',
+    xlim=(0, 500),
+    ylim=(0, 100)
+)
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 9 — RAPPORT FINAL TABLES DE FAITS")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+tables_faits = {
+    'orders':   orders,
+    'items':    items,
+    'payments': payments,
+    'reviews':  reviews,
+    'products': products
+}
+
+print(f"{'Table':<12} | {'Lignes':>8} | {'Nulls':>8} | "
+      f"{'Categ.':>6} | {'Dates':>5}")
+print("-" * 55)
+
+for name, df in tables_faits.items():
+    nulls     = df.isnull().sum().sum()
+    cat_cols  = len(df.select_dtypes('category').columns)
+    date_cols = len(df.select_dtypes('datetime64').columns)
+    print(f"  {name:<12} | {len(df):>8} | {nulls:>8} | "
+          f"{cat_cols:>6} | {date_cols:>5}")
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 10 — EXPORT : data/processed/")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+os.makedirs('../data/processed', exist_ok=True)
+
+for name, df in tables_faits.items():
+    path = f'../data/processed/{name}_clean.csv'
+    df.to_csv(path, index=False)
+    print(f"✓ {name:<12} → {path}")
+
+print(f"\n✓ {len(tables_faits)} tables exportées dans data/processed/")
+print(f"✓ Figures sauvegardées dans reports/figures/")
+print("\n" + "="*60)
+print("   ✓ 02_data_cleaning.ipynb TERMINÉ")
+print("   → Exécuter ensuite : 03_data_support.ipynb")
+print("="*60)
+
+--- 03_eda___.ipynb ---
+
+[CODE]
+# ============================================================
+# 03_eda.ipynb — EXPLORATORY DATA ANALYSIS
+# Source : data/processed/
+# Cours activé : Cours 3 §1 (descriptif) + §3 (tendance centrale)
+# Cours activé : Cours 1 P2 (visualisations)
+# ============================================================
+
+import sys
+sys.path.append('..')
+from src.utils import *
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 1 — CHARGEMENT DONNÉES NETTOYÉES")
+print("   Source : data/processed/")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+orders   = pd.read_csv('../data/processed/orders_clean.csv',
+                       parse_dates=['order_purchase_timestamp',
+                                    'order_approved_at',
+                                    'order_delivered_carrier_date',
+                                    'order_delivered_customer_date',
+                                    'order_estimated_delivery_date'])
+
+items    = pd.read_csv('../data/processed/items_clean.csv',
+                       parse_dates=['shipping_limit_date'])
+
+payments = pd.read_csv('../data/processed/payments_clean.csv')
+reviews  = pd.read_csv('../data/processed/reviews_clean.csv',
+                       parse_dates=['review_creation_date',
+                                    'review_answer_timestamp'])
+products = pd.read_csv('../data/processed/products_clean.csv')
+customers= pd.read_csv('../data/processed/customers_clean.csv')
+
+print(f"{'Table':<12} | {'Lignes':>8} | {'Colonnes':>8}")
+print("-" * 38)
+for name, df in [('orders',orders),('items',items),('payments',payments),
+                 ('reviews',reviews),('products',products),
+                 ('customers',customers)]:
+    print(f"  {name:<12} | {len(df):>8} | {df.shape[1]:>8}")
+
+print("\n✓ Données nettoyées chargées — prêt pour l'analyse")
+
+[CODE]
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   PHASE 1 — VUE GLOBALE : chiffres clés du business")
+print("   Cours 3 §1 — statistique descriptive")
+print("   Cours 3 §3 — tendance centrale")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# Construire la table analytique principale
+# Jointure orders + items + payments
+# C'est la table qu'on utilisera dans toutes les phases suivantes
+df = orders.merge(items, on='order_id', how='inner')
+df = df.merge(
+    payments.groupby('order_id')['payment_value'].sum().reset_index(),
+    on='order_id', how='left'
+)
+df = df.merge(customers[['customer_id','customer_unique_id',
+                          'customer_state']], 
+              on='customer_id', how='left')
+
+print(f"✓ Table analytique construite : {df.shape}")
+
+# KPIs fondamentaux
+# Cours 3 §3 : moyenne, médiane, mode sur les bonnes variables
+commandes_total    = orders['order_id'].nunique()
+clients_total      = customers['customer_unique_id'].nunique()
+ca_total           = (items['price'] + items['freight_value']).sum()
+ca_moyen           = (items['price'] + items['freight_value']).mean()
+ca_median          = (items['price'] + items['freight_value']).median()
+panier_moyen       = items.groupby('order_id')['price'].sum().mean()
+panier_median      = items.groupby('order_id')['price'].sum().median()
+articles_par_cmd   = items.groupby('order_id')['order_item_id'].max().mean()
+
+print(f"\n{'='*50}")
+print(f"  KPIS BUSINESS — OLIST 2016-2018")
+print(f"{'='*50}")
+print(f"  Commandes totales     : {commandes_total:>10,}")
+print(f"  Clients uniques       : {clients_total:>10,}")
+print(f"  CA total              : {ca_total:>10,.0f} BRL")
+print(f"  CA moyen / commande   : {ca_moyen:>10.2f} BRL")
+print(f"  CA médian / commande  : {ca_median:>10.2f} BRL")
+print(f"  Panier moyen (prix)   : {panier_moyen:>10.2f} BRL")
+print(f"  Panier médian (prix)  : {panier_median:>10.2f} BRL")
+print(f"  Articles / commande   : {articles_par_cmd:>10.2f}")
+
+# Pourquoi on affiche médiane ET moyenne ?
+# Cours 3 §3 : si médiane << moyenne → distribution skewed
+# La différence révèle l'asymétrie de la distribution
+diff_pct = (ca_moyen - ca_median) / ca_median * 100
+print(f"\n  Écart moyenne/médiane : +{diff_pct:.1f}%")
+print(f"  → Distribution skewed à droite confirmée")
+print(f"  → La médiane représente mieux le client typique")
+
+[CODE]
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   PHASE 2 — ANALYSE TEMPORELLE")
+print("   Quand est-ce qu'on vend ?")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
+import seaborn as sns
+import os
+os.makedirs('../reports/figures', exist_ok=True)
+
+# Extraire les composantes temporelles
+orders['year']       = orders['order_purchase_timestamp'].dt.year
+orders['month']      = orders['order_purchase_timestamp'].dt.month
+orders['month_name'] = orders['order_purchase_timestamp'].dt.strftime('%Y-%m')
+orders['dayofweek']  = orders['order_purchase_timestamp'].dt.dayofweek
+orders['hour']       = orders['order_purchase_timestamp'].dt.hour
+orders['quarter']    = orders['order_purchase_timestamp'].dt.quarter
+
+# --- Graphique 1 : Evolution CA mensuel ---
+# Jointure pour avoir le CA par mois
+orders_items = orders.merge(items[['order_id','price','freight_value']],
+                             on='order_id', how='left')
+orders_items['revenue'] = orders_items['price'] + orders_items['freight_value']
+
+ca_mensuel = (orders_items
+              .groupby('month_name')['revenue']
+              .sum()
+              .reset_index()
+              .sort_values('month_name'))
+
+fig, ax = plt.subplots(figsize=(14, 5))
+ax.plot(ca_mensuel['month_name'], ca_mensuel['revenue'],
+        color='#1D9E75', linewidth=2.5, marker='o', markersize=4)
+ax.fill_between(range(len(ca_mensuel)), ca_mensuel['revenue'],
+                alpha=0.1, color='#1D9E75')
+ax.set_xticks(range(len(ca_mensuel)))
+ax.set_xticklabels(ca_mensuel['month_name'], rotation=45, ha='right',
+                   fontsize=9)
+ax.set_title('Évolution du CA mensuel — Olist 2016-2018', fontsize=13)
+ax.set_ylabel('CA total (BRL)')
+ax.yaxis.set_major_formatter(mticker.FuncFormatter(
+    lambda x, _: f'{x/1e6:.1f}M'))
+plt.tight_layout()
+plt.savefig('../reports/figures/04_ca_mensuel.png', dpi=150)
+plt.show()
+print("✓ Graphique sauvegardé : 04_ca_mensuel.png")
+
+# --- Graphique 2 : Commandes par jour de la semaine ---
+jours = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche']
+cmd_jour = orders.groupby('dayofweek')['order_id'].count()
+
+fig, ax = plt.subplots(figsize=(10, 4))
+bars = ax.bar(jours, cmd_jour.values, color='#534AB7', alpha=0.8)
+ax.bar_label(bars, fmt='%,.0f', fontsize=9)
+ax.set_title('Commandes par jour de la semaine', fontsize=13)
+ax.set_ylabel('Nombre de commandes')
+plt.tight_layout()
+plt.savefig('../reports/figures/05_commandes_jour.png', dpi=150)
+plt.show()
+print("✓ Graphique sauvegardé : 05_commandes_jour.png")
+
+# --- Graphique 3 : Heatmap heure × jour ---
+heatmap_data = (orders.groupby(['dayofweek','hour'])['order_id']
+                .count()
+                .unstack(fill_value=0))
+heatmap_data.index = jours
+
+fig, ax = plt.subplots(figsize=(16, 5))
+sns.heatmap(heatmap_data, cmap='YlOrRd', ax=ax,
+            linewidths=0.3, linecolor='white')
+ax.set_title('Heatmap — Commandes par heure × jour', fontsize=13)
+ax.set_xlabel('Heure de la journée')
+ax.set_ylabel('Jour de la semaine')
+plt.tight_layout()
+plt.savefig('../reports/figures/06_heatmap_heure_jour.png', dpi=150)
+plt.show()
+print("✓ Graphique sauvegardé : 06_heatmap_heure_jour.png")
+
+# Stats descriptives temporelles
+print(f"\n--- Insights temporels ---")
+top_mois = ca_mensuel.nlargest(3, 'revenue')[['month_name','revenue']]
+print(f"Top 3 mois CA :")
+for _, row in top_mois.iterrows():
+    print(f"  {row['month_name']} : {row['revenue']:,.0f} BRL")
+
+top_jour_idx = cmd_jour.idxmax()
+print(f"\nJour le plus actif : {jours[top_jour_idx]}")
+print(f"Heure de pointe    : {orders['hour'].mode()[0]}h")
+
+[CODE]
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   PHASE 3 — ANALYSE PRODUITS")
+print("   Qu'est-ce qu'on vend ?")
+print("   Loi de Pareto — 20% produits = 80% CA")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# Jointure items + products
+items_prod = items.merge(
+    products[['product_id','product_category_name_english']],
+    on='product_id', how='left'
+)
+
+# CA par catégorie
+ca_cat = (items_prod
+          .groupby('product_category_name_english')
+          .agg(
+              ca_total=('price','sum'),
+              nb_ventes=('order_id','count'),
+              prix_moyen=('price','mean'),
+              prix_median=('price','median')
+          )
+          .sort_values('ca_total', ascending=False)
+          .reset_index())
+
+# --- Graphique 4 : Top 15 catégories par CA ---
+top15 = ca_cat.head(15)
+
+fig, ax = plt.subplots(figsize=(12, 6))
+bars = ax.barh(top15['product_category_name_english'],
+               top15['ca_total'], color='#1D9E75', alpha=0.85)
+ax.invert_yaxis()
+ax.set_title('Top 15 catégories — CA total (BRL)', fontsize=13)
+ax.set_xlabel('CA total (BRL)')
+ax.xaxis.set_major_formatter(mticker.FuncFormatter(
+    lambda x, _: f'{x/1e6:.1f}M'))
+plt.tight_layout()
+plt.savefig('../reports/figures/07_top15_categories.png', dpi=150)
+plt.show()
+print("✓ Graphique sauvegardé : 07_top15_categories.png")
+
+# --- Graphique 5 : Courbe de Pareto ---
+# Cours 1 P3 : loi de Pareto — 20% des catégories = 80% du CA
+ca_cat['ca_cumul_pct'] = (ca_cat['ca_total'].cumsum() /
+                           ca_cat['ca_total'].sum() * 100)
+ca_cat['rank_pct'] = (np.arange(1, len(ca_cat)+1) /
+                      len(ca_cat) * 100)
+
+fig, ax1 = plt.subplots(figsize=(12, 5))
+ax2 = ax1.twinx()
+
+ax1.bar(range(len(ca_cat)), ca_cat['ca_total'],
+        color='#534AB7', alpha=0.6)
+ax2.plot(range(len(ca_cat)), ca_cat['ca_cumul_pct'],
+         color='#E63946', linewidth=2)
+ax2.axhline(80, color='gray', linestyle='--', alpha=0.7, label='80%')
+
+ax1.set_title('Courbe de Pareto — CA par catégorie', fontsize=13)
+ax1.set_xlabel('Catégories (triées par CA)')
+ax1.set_ylabel('CA total (BRL)', color='#534AB7')
+ax2.set_ylabel('CA cumulé (%)', color='#E63946')
+ax2.legend()
+plt.tight_layout()
+plt.savefig('../reports/figures/08_pareto_categories.png', dpi=150)
+plt.show()
+
+# Trouver le point Pareto
+pareto_idx = (ca_cat['ca_cumul_pct'] >= 80).idxmax()
+pareto_pct_cats = ca_cat.loc[pareto_idx, 'rank_pct']
+print(f"\n✓ Loi de Pareto confirmée :")
+print(f"  {pareto_pct_cats:.1f}% des catégories génèrent 80% du CA")
+print(f"  Soit {pareto_idx+1} catégories sur {len(ca_cat)}")
+
+print(f"\n--- Top 5 catégories ---")
+print(ca_cat[['product_category_name_english',
+              'ca_total','nb_ventes',
+              'prix_median']].head(5).to_string(index=False))
+
+[CODE]
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   PHASE 4 — ANALYSE CLIENTS")
+print("   À qui on vend ?")
+print("   Cours 3 §2 — customer_state = variable nominale")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# Commandes par état
+cmd_state = (orders.merge(customers[['customer_id','customer_state']],
+                           on='customer_id', how='left')
+             .groupby('customer_state')['order_id']
+             .count()
+             .sort_values(ascending=False)
+             .reset_index())
+cmd_state.columns = ['state','nb_commandes']
+
+# --- Graphique 6 : Top 10 états ---
+fig, ax = plt.subplots(figsize=(12, 5))
+bars = ax.bar(cmd_state.head(10)['state'],
+              cmd_state.head(10)['nb_commandes'],
+              color='#185FA5', alpha=0.85)
+ax.bar_label(bars, fmt='%,.0f', fontsize=9)
+ax.set_title('Top 10 états brésiliens — Nombre de commandes', fontsize=13)
+ax.set_ylabel('Nombre de commandes')
+plt.tight_layout()
+plt.savefig('../reports/figures/09_commandes_par_etat.png', dpi=150)
+plt.show()
+print("✓ Graphique sauvegardé : 09_commandes_par_etat.png")
+
+# Concentration géographique
+top3_pct = (cmd_state.head(3)['nb_commandes'].sum() /
+            cmd_state['nb_commandes'].sum() * 100)
+print(f"\n✓ Concentration géographique :")
+print(f"  Top 3 états = {top3_pct:.1f}% de toutes les commandes")
+print(cmd_state.head(5).to_string(index=False))
+
+# --- Clients mono-achat vs multi-achat ---
+cmd_par_client = (orders.merge(
+    customers[['customer_id','customer_unique_id']],
+    on='customer_id', how='left')
+    .groupby('customer_unique_id')['order_id']
+    .count()
+    .reset_index())
+cmd_par_client.columns = ['customer_unique_id','nb_commandes']
+
+mono   = (cmd_par_client['nb_commandes'] == 1).sum()
+multi  = (cmd_par_client['nb_commandes'] > 1).sum()
+total  = len(cmd_par_client)
+
+print(f"\n--- Fidélité clients ---")
+print(f"  Clients mono-achat  : {mono:>8,} ({mono/total*100:.1f}%)")
+print(f"  Clients multi-achat : {multi:>8,} ({multi/total*100:.1f}%)")
+print(f"\n⚠️  Insight critique : si >90% mono-achat → problème de rétention")
+print(f"   → Ce KPI alimentera directement le modèle de churn ML")
+
+[CODE]
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   PHASE 5 — ANALYSE PAIEMENTS")
+print("   Comment on paie ?")
+print("   Cours 3 §2 — payment_type = nominale")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# Distribution des types de paiement
+pay_dist = payments['payment_type'].value_counts()
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+# define the exact order  
+desired_order = ['credit_card','debit_card', 'boleto','not_defined','voucher']
+
+# Reorder the series to match your list 
+pay_dist = pay_dist.reindex(desired_order)
+
+# Pie chart
+axes[0].pie(pay_dist.values, labels=pay_dist.index,
+            autopct='%1.1f%%', startangle=90,
+            colors=['#1D9E75','#534AB7','#BA7517','#993C1D','#185FA5'])
+axes[0].set_title('Distribution des modes de paiement')
+
+# Montant moyen par type
+pay_avg = (payments.groupby('payment_type')['payment_value']
+           .mean()
+           .sort_values(ascending=False))
+axes[1].bar(pay_avg.index, pay_avg.values,
+            color='#534AB7', alpha=0.8)
+axes[1].set_title('Montant moyen par mode de paiement (BRL)')
+axes[1].set_ylabel('Montant moyen (BRL)')
+
+plt.tight_layout()
+plt.savefig('../reports/figures/10_paiements_analyse.png', dpi=150)
+plt.show()
+print("✓ Graphique sauvegardé : 10_paiements_analyse.png")
+
+# Analyse des mensualités
+print(f"\n--- Analyse des mensualités (installments) ---")
+print(payments['payment_installments'].value_counts().head(8))
+avg_install = payments[payments['payment_type']=='credit_card']['payment_installments'].mean()
+print(f"\nMoyenne mensualités carte crédit : {avg_install:.1f}")
+
+[CODE]
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   PHASE 6 — ANALYSE SATISFACTION")
+print("   Est-ce qu'on satisfait les clients ?")
+print("   Cours 3 §2 — review_score = variable ordinale")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# Distribution des scores
+score_dist = reviews['review_score'].value_counts().sort_index()
+score_pct  = score_dist / score_dist.sum() * 100
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+# Bar chart scores
+colors = ['#E63946','#FF6B6B','#FFA500','#74C69D','#1D9E75']
+labels = [f"{v:,.0f}" for v in score_dist.values]
+bars = axes[0].bar(score_dist.index, score_dist.values,
+                   color=colors, alpha=0.85)
+axes[0].bar_label(bars, labels = labels, fontsize=9)
+axes[0].set_title('Distribution des scores de satisfaction')
+axes[0].set_xlabel('Score (1-5)')
+axes[0].set_ylabel('Nombre d\'avis')
+
+# Score moyen par catégorie produit
+score_cat = (reviews.merge(
+    orders[['order_id']].merge(items[['order_id','product_id']],
+                                on='order_id'), on='order_id')
+    .merge(products[['product_id','product_category_name_english']],
+           on='product_id')
+    .groupby('product_category_name_english')['review_score']
+    .mean()
+    .sort_values()
+    .head(10))
+
+axes[1].barh(score_cat.index, score_cat.values,
+             color='#E63946', alpha=0.8)
+axes[1].set_title('10 catégories avec les scores les plus bas')
+axes[1].set_xlabel('Score moyen')
+axes[1].set_xlim(1, 5)
+plt.tight_layout()
+plt.savefig('../reports/figures/11_satisfaction_analyse.png', dpi=150)
+plt.show()
+
+# Stats satisfaction
+mediane_score = reviews['review_score'].median()
+mean_score    = reviews['review_score'].mean()
+pct_positif   = score_pct[score_pct.index >= 4].sum()
+pct_negatif   = score_pct[score_pct.index <= 2].sum()
+
+print(f"✓ Score médian    : {mediane_score}")
+print(f"✓ Score moyen     : {mean_score:.2f} (approximation — variable ordinale)")
+print(f"✓ Scores positifs (4-5) : {pct_positif:.1f}%")
+print(f"✓ Scores négatifs (1-2) : {pct_negatif:.1f}%")
+print(f"{pct_negatif:.1f}")
+print(f"{pct_positif:.2f}")
+
+[CODE]
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   PHASE 7 — ANALYSE DES CORRÉLATIONS")
+print("   Qu'est-ce qui influence quoi ?")
+print("   Cours 3 §4 — dispersion et relations")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# Étape 1 : construire df_corr avec order_id inclus dès le départ
+df_corr = items[['order_id', 'price', 'freight_value']].copy()
+
+# Étape 2 : calculer le délai de livraison sur les commandes livrées
+orders_delai = orders[orders['order_status'] == 'delivered'].copy()
+orders_delai['delai_livraison'] = (
+    (orders_delai['order_delivered_customer_date'] -
+     orders_delai['order_purchase_timestamp']).dt.days
+)
+
+# Étape 3 : merger le délai sur df_corr via order_id
+df_corr = df_corr.merge(
+    orders_delai[['order_id', 'delai_livraison']],
+    on='order_id',
+    how='left'
+)
+
+# Étape 4 : merger le score de satisfaction via order_id
+df_corr = df_corr.merge(
+    reviews[['order_id', 'review_score']],
+    on='order_id',
+    how='left'
+)
+
+print(f"✓ df_corr construit : {df_corr.shape}")
+print(f"✓ Colonnes : {df_corr.columns.tolist()}")
+print(f"✓ Nulls delai_livraison : {df_corr['delai_livraison'].isnull().sum()}")
+
+# Étape 5 : matrice de corrélation
+corr_matrix = df_corr[['price', 'freight_value',
+                        'delai_livraison', 'review_score']].corr()
+
+fig, ax = plt.subplots(figsize=(8, 6))
+sns.heatmap(corr_matrix, annot=True, fmt='.3f', cmap='RdYlGn',
+            center=0, ax=ax, linewidths=0.5,
+            annot_kws={'size': 11})
+ax.set_title('Matrice de corrélation — variables clés', fontsize=13)
+plt.tight_layout()
+plt.savefig('../reports/figures/12_correlation_matrix.png', dpi=150)
+plt.show()
+print("✓ Graphique sauvegardé : 12_correlation_matrix.png")
+
+print(f"\n--- Interprétation ---")
+print(f"  price vs freight_value : "
+      f"{corr_matrix.loc['price','freight_value']:.3f}")
+print(f"  delai vs review_score  : "
+      f"{corr_matrix.loc['delai_livraison','review_score']:.3f}")
+print(f"\n⚠️  RAPPEL : corrélation ≠ causalité")
+print(f"   Une corrélation forte révèle une relation — pas une cause")
+
+[CODE]
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   PHASE 8 — HYPOTHÈSES BUSINESS")
+print("   Ce qu'on va tester en Feature Engineering")
+print("   Cours 3 §1 — du descriptif vers l'inférentiel")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# Cette phase ne code pas — elle raisonne
+# C'est la transition entre l'EDA (descriptif) et le ML (inférentiel)
+
+hypotheses = [
+    {
+        'id': 'H1',
+        'question': 'Les clients qui attendent plus longtemps notent-ils moins bien ?',
+        'observation': 'Corrélation négative délai/score détectée',
+        'test_prevu': 'Feature Engineering : créer variable délai_livraison',
+        'impact_ml': 'Feature prédictive pour le churn'
+    },
+    {
+        'id': 'H2',
+        'question': 'Les catégories premium ont-elles un taux de retour plus élevé ?',
+        'observation': 'Scores bas sur certaines catégories high-price',
+        'test_prevu': 'Croiser review_score < 3 avec price > Q3',
+        'impact_ml': 'Feature pour prédiction insatisfaction'
+    },
+    {
+        'id': 'H3',
+        'question': 'Les clients mono-achat sont-ils concentrés dans certains états ?',
+        'observation': 'Concentration géographique forte (SP domine)',
+        'test_prevu': 'Croiser mono-achat avec customer_state',
+        'impact_ml': 'Feature géographique pour le churn'
+    },
+    {
+        'id': 'H4',
+        'question': 'Le paiement en plusieurs fois corrèle-t-il avec un panier plus élevé ?',
+        'observation': 'Carte crédit = montant moyen plus élevé',
+        'test_prevu': 'Croiser payment_installments avec payment_value',
+        'impact_ml': 'Feature comportement paiement pour segmentation'
+    },
+    {
+        'id': 'H5',
+        'question': 'Y a-t-il une saisonnalité régulière des ventes ?',
+        'observation': 'Pics visibles sur le graphique mensuel',
+        'test_prevu': 'Décomposition tendance/saisonnalité en Feature Engineering',
+        'impact_ml': 'Feature temporelle pour le forecasting'
+    }
+]
+
+print(f"{'ID':<5} | {'Hypothèse':<52} | {'Impact ML'}")
+print("-" * 90)
+for h in hypotheses:
+    print(f"  {h['id']:<5} | {h['question']:<52} | {h['impact_ml']}")
+
+print(f"\n✓ {len(hypotheses)} hypothèses formulées")
+print(f"  → Ces hypothèses guident le 05_feature_engineering.ipynb")
+print(f"  → Chaque feature créée doit répondre à une hypothèse")
+
+[CODE]
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   RAPPORT FINAL EDA")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+print("=== INSIGHTS CLÉS — À RETENIR POUR LA SUITE ===\n")
+
+insights = [
+    "Distribution skewed : médiane CA << moyenne → client typique ≠ client moyen",
+    "Saisonnalité : pic en novembre (Black Friday) → feature critique pour ML",
+    "Pareto confirmé : ~X% catégories = 80% CA → focus produit possible",
+    "Rétention faible : majorité mono-achat → churn est le problème principal",
+    "SP concentre ~42% des commandes → biais géographique à traiter",
+    "Délai livraison corrèle négativement avec satisfaction → feature RFM",
+    "3345 clients ont plusieurs customer_id → RFM doit utiliser unique_id",
+]
+
+for i, insight in enumerate(insights, 1):
+    print(f"  {i}. {insight}")
+
+print(f"\n✓ EDA terminée — {len(insights)} insights documentés")
+print(f"✓ Figures sauvegardées dans reports/figures/")
+print(f"\n→ Prochain : 05_feature_engineering.ipynb")
+print(f"  On transforme ces insights en features ML concrètes")
+print("\n" + "="*60)
+print("   ✓ MILESTONE 2 — EDA TERMINÉ")
+print("="*60)
+
+--- 04_feature_engineering.ipynb ---
+
+[CODE]
+# ============================================================
+# 05_feature_engineering.ipynb — FEATURE ENGINEERING
+# Source : data/processed/ → data/processed/olist_features.csv
+# Cours activé : Cours 3 §3 — tendance centrale par client
+# Cours activé : Cours 1 P4 — One-Hot Encoding
+# Cours activé : Cours 2 P2A — features pour ML supervisé
+# ============================================================
+
+import sys
+sys.path.append('..')
+from src.utils import *
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 1 — CHARGEMENT DONNÉES NETTOYÉES")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+orders    = pd.read_csv('../data/processed/orders_clean.csv',
+                        parse_dates=['order_purchase_timestamp',
+                                     'order_approved_at',
+                                     'order_delivered_carrier_date',
+                                     'order_delivered_customer_date',
+                                     'order_estimated_delivery_date'])
+items     = pd.read_csv('../data/processed/items_clean.csv')
+payments  = pd.read_csv('../data/processed/payments_clean.csv')
+reviews   = pd.read_csv('../data/processed/reviews_clean.csv')
+products  = pd.read_csv('../data/processed/products_clean.csv')
+customers = pd.read_csv('../data/processed/customers_clean.csv')
+
+# Date de référence pour le calcul de Recency
+# On prend le lendemain de la dernière commande dans le dataset
+date_ref = orders['order_purchase_timestamp'].max() + pd.Timedelta(days=1)
+print(f"✓ Date de référence RFM : {date_ref.date()}")
+print(f"✓ Tables chargées")
+
+[CODE]
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 2 — VARIABLES TEMPORELLES")
+print("   EDA H1 : délai corrèle avec satisfaction")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# Travailler uniquement sur les commandes livrées
+# Les autres statuts n'ont pas de date de livraison complète
+orders_livrees = orders[orders['order_status'] == 'delivered'].copy()
+
+# Délai de livraison réel (jours)
+orders_livrees['delai_livraison'] = (
+    orders_livrees['order_delivered_customer_date'] -
+    orders_livrees['order_purchase_timestamp']
+).dt.days
+
+# Délai d'approbation (heures)
+orders_livrees['delai_approbation'] = (
+    orders_livrees['order_approved_at'] -
+    orders_livrees['order_purchase_timestamp']
+).dt.total_seconds() / 3600
+
+# Retard vs estimation (positif = en retard, négatif = en avance)
+orders_livrees['retard_vs_estimation'] = (
+    orders_livrees['order_delivered_customer_date'] -
+    orders_livrees['order_estimated_delivery_date']
+).dt.days
+
+# Variables calendaires — pour la saisonnalité
+orders_livrees['mois']       = orders_livrees['order_purchase_timestamp'].dt.month
+orders_livrees['trimestre']  = orders_livrees['order_purchase_timestamp'].dt.quarter
+orders_livrees['jour_semaine']= orders_livrees['order_purchase_timestamp'].dt.dayofweek
+orders_livrees['is_weekend'] = orders_livrees['jour_semaine'].isin([5,6]).astype(int)
+
+print(f"✓ Commandes livrées : {len(orders_livrees)}")
+print(f"\n--- Statistiques délais ---")
+print(f"  Délai moyen     : {orders_livrees['delai_livraison'].mean():.1f} jours")
+print(f"  Délai médian    : {orders_livrees['delai_livraison'].median():.1f} jours")
+print(f"  Retard moyen    : {orders_livrees['retard_vs_estimation'].mean():.1f} jours")
+print(f"  % commandes en retard : "
+      f"{(orders_livrees['retard_vs_estimation'] > 0).mean()*100:.1f}%")
+
+[CODE]
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 3 — VARIABLES BUSINESS PAR COMMANDE")
+print("   Revenue, panier, catégories")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# Revenue par commande = prix + fret
+items['revenue'] = items['price'] + items['freight_value']
+
+# Agrégation par commande
+items_agg = items.groupby('order_id').agg(
+    revenue_commande   = ('revenue', 'sum'),
+    prix_commande      = ('price', 'sum'),
+    fret_commande      = ('freight_value', 'sum'),
+    nb_articles        = ('order_item_id', 'max'),
+    nb_produits_uniq   = ('product_id', 'nunique'),
+).reset_index()
+
+# Nombre de catégories différentes par commande
+cat_par_cmd = (items.merge(
+    products[['product_id','product_category_name_english']],
+    on='product_id', how='left')
+    .groupby('order_id')['product_category_name_english']
+    .nunique()
+    .reset_index()
+    .rename(columns={'product_category_name_english':'nb_categories'}))
+
+items_agg = items_agg.merge(cat_par_cmd, on='order_id', how='left')
+
+print(f"✓ Agrégation commandes : {items_agg.shape}")
+print(f"\n--- Stats revenue par commande ---")
+print(f"  Revenue moyen   : {items_agg['revenue_commande'].mean():.2f} BRL")
+print(f"  Revenue médian  : {items_agg['revenue_commande'].median():.2f} BRL")
+print(f"  Articles moyen  : {items_agg['nb_articles'].mean():.2f}")
+
+[CODE]
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 4 — VARIABLES PAIEMENT PAR COMMANDE")
+print("   Cours 3 §2 — payment_type nominale → encoding")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# Agrégation paiements par commande
+pay_agg = payments.groupby('order_id').agg(
+    montant_total_paye  = ('payment_value', 'sum'),
+    nb_paiements        = ('payment_sequential', 'max'),
+    nb_mensualites_max  = ('payment_installments', 'max'),
+).reset_index()
+
+# Type de paiement dominant par commande
+pay_type = (payments.groupby('order_id')['payment_type']
+            .agg(lambda x: x.value_counts().index[0])
+            .reset_index()
+            .rename(columns={'payment_type':'payment_type_dominant'}))
+
+pay_agg = pay_agg.merge(pay_type, on='order_id', how='left')
+
+# Flag carte de crédit
+pay_agg['is_credit_card'] = (
+    pay_agg['payment_type_dominant'] == 'credit_card'
+).astype(int)
+
+print(f"✓ Agrégation paiements : {pay_agg.shape}")
+print(f"\n--- Stats paiements ---")
+print(f"  % carte crédit  : "
+      f"{pay_agg['is_credit_card'].mean()*100:.1f}%")
+print(f"  Mensualités moy : "
+      f"{pay_agg['nb_mensualites_max'].mean():.1f}")
+
+[CODE]
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 5 — VARIABLES SATISFACTION PAR COMMANDE")
+print("   EDA H2 : satisfaction liée aux catégories et délais")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# Score de satisfaction par commande
+reviews_agg = reviews.groupby('order_id').agg(
+    score_moyen     = ('review_score', 'mean'),
+    nb_avis         = ('review_score', 'count'),
+).reset_index()
+
+# Flag insatisfaction
+reviews_agg['is_insatisfait'] = (
+    reviews_agg['score_moyen'] <= 2
+).astype(int)
+
+print(f"✓ Agrégation reviews : {reviews_agg.shape}")
+print(f"  % insatisfaits  : "
+      f"{reviews_agg['is_insatisfait'].mean()*100:.1f}%")
+
+[CODE]
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 6 — TABLE MAÎTRE PAR COMMANDE")
+print("   Assembler toutes les variables par order_id")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# Base : commandes livrées avec customer_unique_id
+base = orders_livrees[['order_id','customer_id',
+                        'order_purchase_timestamp',
+                        'delai_livraison',
+                        'delai_approbation',
+                        'retard_vs_estimation',
+                        'mois','trimestre',
+                        'jour_semaine','is_weekend']].copy()
+
+# Ajouter customer_unique_id depuis customers
+base = base.merge(
+    customers[['customer_id','customer_unique_id','customer_state']],
+    on='customer_id', how='left'
+)
+
+# Ajouter variables business
+base = base.merge(items_agg, on='order_id', how='left')
+
+# Ajouter variables paiement
+base = base.merge(pay_agg, on='order_id', how='left')
+
+# Ajouter variables satisfaction
+base = base.merge(reviews_agg, on='order_id', how='left')
+
+print(f"✓ Table maître commandes : {base.shape}")
+print(f"  Colonnes : {base.columns.tolist()}")
+print(f"\n  Nulls par colonne :")
+nulls = base.isnull().sum()
+print(nulls[nulls > 0])
+
+[CODE]
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 7 — RFM : AGRÉGATION PAR CLIENT")
+print("   EDA : 96.9% mono-achat → Recency critique")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# Agrégation par customer_unique_id
+# C'est ici qu'on utilise unique_id — pas customer_id
+# Audit étape 10 : 3345 clients ont plusieurs customer_id
+rfm = base.groupby('customer_unique_id').agg(
+    # RFM classique
+    recency         = ('order_purchase_timestamp',
+                       lambda x: (date_ref - x.max()).days),
+    frequency       = ('order_id', 'count'),
+    monetary        = ('revenue_commande', 'sum'),
+
+    # Variables business agrégées
+    panier_moyen    = ('prix_commande', 'mean'),
+    delai_moyen     = ('delai_livraison', 'mean'),
+    retard_moyen    = ('retard_vs_estimation', 'mean'),
+    score_moyen     = ('score_moyen', 'mean'),
+    nb_avis         = ('nb_avis', 'sum'),
+    is_insatisfait  = ('is_insatisfait', 'max'),
+    nb_articles_moy = ('nb_articles', 'mean'),
+    nb_cat_moy      = ('nb_categories', 'mean'),
+    pct_credit      = ('is_credit_card', 'mean'),
+    mensualites_moy = ('nb_mensualites_max', 'mean'),
+
+    # Info géographique
+    customer_state  = ('customer_state', 'first'),
+
+    # Temporel
+    mois_premier_achat = ('order_purchase_timestamp', 'min'),
+    mois_dernier_achat = ('order_purchase_timestamp', 'max'),
+
+).reset_index()
+
+print(f"✓ Table RFM : {rfm.shape}")
+print(f"\n--- Stats RFM ---")
+print(f"  Recency  — médiane : {rfm['recency'].median():.0f} jours")
+print(f"  Frequency— médiane : {rfm['frequency'].median():.0f} commandes")
+print(f"  Monetary — médiane : {rfm['monetary'].median():.2f} BRL")
+print(f"  Monetary — moyenne : {rfm['monetary'].mean():.2f} BRL")
+print(f"\n  Écart moyenne/médiane monetary : "
+      f"{(rfm['monetary'].mean()-rfm['monetary'].median())/rfm['monetary'].median()*100:.1f}%")
+print(f"  → Distribution skewed confirmée — médiane représente mieux")
+
+[CODE]
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 8 — SCORING RFM")
+print("   Transformer R, F, M en scores 1-5")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# Score Recency : plus c'est récent = meilleur score
+# Donc on inverse : recency faible → score 5
+rfm['r_score'] = pd.qcut(rfm['recency'], q=5,
+                          labels=[5,4,3,2,1])
+
+# Score Frequency : plus c'est fréquent = meilleur score
+# qcut ne marche pas si trop peu de valeurs uniques
+# 96.9% ont frequency=1 → on gère ce cas
+try:
+    rfm['f_score'] = pd.qcut(rfm['frequency'], q=5,
+                              labels=[1,2,3,4,5],
+                              duplicates='drop')
+except Exception:
+    rfm['f_score'] = pd.cut(rfm['frequency'],
+                             bins=[0,1,2,3,5,rfm['frequency'].max()+1],
+                             labels=[1,2,3,4,5])
+
+# Score Monetary : plus c'est élevé = meilleur score
+rfm['m_score'] = pd.qcut(rfm['monetary'], q=5,
+                          labels=[1,2,3,4,5],
+                          duplicates='drop')
+
+# Score RFM global
+rfm['r_score'] = rfm['r_score'].astype(int)
+rfm['f_score'] = rfm['f_score'].astype(int)
+rfm['m_score'] = rfm['m_score'].astype(int)
+rfm['rfm_score'] = rfm['r_score'] + rfm['f_score'] + rfm['m_score']
+
+print(f"✓ Scores RFM calculés")
+print(f"\n--- Distribution rfm_score ---")
+print(rfm['rfm_score'].describe())
+
+[CODE]
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 9 — SEGMENTATION CLIENT")
+print("   Transformer le score RFM en segments métier")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+def segmenter_client(row):
+    """
+    Segmentation basée sur les scores R, F, M
+    Logique métier — pas algorithmique
+    """
+    r, f, m = row['r_score'], row['f_score'], row['m_score']
+
+    if r >= 4 and f >= 4 and m >= 4:
+        return 'VIP'
+    elif r >= 3 and f >= 3:
+        return 'Fidèle'
+    elif r >= 4 and f <= 2:
+        return 'Nouveau'
+    elif r <= 2 and f >= 3:
+        return 'À risque'
+    elif r <= 2 and f <= 2:
+        return 'Perdu'
+    else:
+        return 'Intermédiaire'
+
+rfm['segment'] = rfm.apply(segmenter_client, axis=1)
+
+print(f"✓ Segmentation calculée")
+print(f"\n--- Distribution des segments ---")
+seg_dist = rfm['segment'].value_counts()
+for seg, count in seg_dist.items():
+    pct = count / len(rfm) * 100
+    print(f"  {seg:<15} : {count:>7,} ({pct:.1f}%)")
+
+[CODE]
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 10 — TARGET ML : is_churned")
+print("   Variable cible pour le modèle de churn")
+print("   EDA : 96.9% mono-achat → définition du churn")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# Définition du churn :
+# Un client est "churned" s'il n'a pas commandé
+# depuis plus de 180 jours ET n'a commandé qu'une fois
+# Justification : médiane recency + analyse mono-achat EDA
+
+SEUIL_CHURN_JOURS = 180
+
+rfm['is_churned'] = (
+    (rfm['recency'] > SEUIL_CHURN_JOURS) &
+    (rfm['frequency'] == 1)
+).astype(int)
+
+n_churned = rfm['is_churned'].sum()
+pct_churned = n_churned / len(rfm) * 100
+
+print(f"✓ Seuil churn : {SEUIL_CHURN_JOURS} jours")
+print(f"✓ Clients churned  : {n_churned:,} ({pct_churned:.1f}%)")
+print(f"✓ Clients actifs   : {len(rfm)-n_churned:,} "
+      f"({100-pct_churned:.1f}%)")
+print(f"\n→ is_churned = TARGET du modèle ML dans 06_machine_learning")
+
+[CODE]
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 11 — ONE-HOT ENCODING")
+print("   Cours 1 P4 — préparer les variables nominales pour ML")
+print("   Cours 3 §2 — nominale → pas de calcul numérique direct")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# customer_state → One-Hot Encoding
+# Cours 1 P4 : drop_first=True pour éviter multicolinéarité
+rfm_encoded = pd.get_dummies(
+    rfm,
+    columns=['customer_state'],
+    prefix='state',
+    drop_first=True  # Cours 1 P4 — Pro tip : éviter multicolinéarité
+)
+
+print(f"✓ Colonnes avant encoding : {rfm.shape[1]}")
+print(f"✓ Colonnes après encoding : {rfm_encoded.shape[1]}")
+print(f"✓ Colonnes state créées   : "
+      f"{len([c for c in rfm_encoded.columns if c.startswith('state_')])}")
+
+[CODE]
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 12 — RAPPORT FINAL + EXPORT")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+import os
+os.makedirs('../data/processed', exist_ok=True)
+
+# Rapport final
+print(f"{'='*50}")
+print(f"  TABLE FEATURES FINALE")
+print(f"{'='*50}")
+print(f"  Lignes (clients uniques) : {len(rfm):>10,}")
+print(f"  Colonnes features        : {len(rfm_encoded.columns):>10}")
+print(f"  Target is_churned        : {rfm['is_churned'].sum():>10,} "
+      f"({rfm['is_churned'].mean()*100:.1f}%)")
+print(f"\n  Nulls restants :")
+nulls = rfm_encoded.isnull().sum()
+print(nulls[nulls > 0] if len(nulls[nulls > 0]) > 0
+      else "  ✓ Aucun null")
+
+# Export table RFM avec segments (pour Power BI)
+rfm.to_csv('../data/processed/olist_rfm.csv', index=False)
+print(f"\n✓ olist_rfm.csv → data/processed/")
+
+# Export table features encodées (pour ML)
+rfm_encoded.to_csv('../data/processed/olist_features.csv', index=False)
+print(f"✓ olist_features.csv → data/processed/")
+
+# Export pour Power BI
+os.makedirs('../data/exports', exist_ok=True)
+rfm[['customer_unique_id','recency','frequency',
+     'monetary','rfm_score','segment',
+     'panier_moyen','delai_moyen','score_moyen',
+     'customer_state','is_churned']].to_csv(
+    '../data/exports/rfm_dashboard.csv', index=False)
+print(f"✓ rfm_dashboard.csv → data/exports/ (Power BI)")
+
+print("\n" + "="*60)
+print("   ✓ MILESTONE 3 — FEATURE ENGINEERING TERMINÉ")
+print("   → 2 fichiers créés :")
+print("     olist_rfm.csv      — segments + RFM (Power BI)")
+print("     olist_features.csv — features ML encodées")
+print("   → Prochain : 06_machine_learning.ipynb")
+print("="*60)
+
+[CODE]
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 11b — TRAITEMENT NULLS RÉSIDUELS")
+print("   Cours 3 §3 — imputation médiane avant ML")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# score_moyen et is_insatisfait : 603 clients sans aucun avis
+# Ces clients n'ont jamais laissé de review
+# Imputer score_moyen avec la médiane globale
+# Imputer is_insatisfait avec 0 (pas d'insatisfaction connue)
+mediane_score = rfm['score_moyen'].median()
+rfm['score_moyen']     = rfm['score_moyen'].fillna(mediane_score)
+rfm['is_insatisfait']  = rfm['is_insatisfait'].fillna(0).astype(int)
+
+# pct_credit et mensualites_moy : 1 client sans paiement enregistré
+# Imputer avec la médiane
+rfm['pct_credit']       = rfm['pct_credit'].fillna(rfm['pct_credit'].median())
+rfm['mensualites_moy']  = rfm['mensualites_moy'].fillna(
+                           rfm['mensualites_moy'].median())
+
+print(f"✓ score_moyen    imputé avec médiane = {mediane_score:.2f}")
+print(f"✓ is_insatisfait imputé avec 0")
+print(f"✓ pct_credit     imputé avec médiane")
+print(f"✓ mensualites_moy imputé avec médiane")
+print(f"\n✓ Nulls restants : {rfm.isnull().sum().sum()}")
+
+[CODE]
+# ============================================================
+# EXPORT POWER BI — CA par catégorie
+# Coller dans 05_feature_engineering.ipynb
+# OU créer un nouveau notebook 07_exports_powerbi.ipynb
+# ============================================================
+
+import sys
+import os
+sys.path.append('..')
+from src.utils import *
+
+os.makedirs('../data/exports', exist_ok=True)
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   CHARGEMENT — tables nécessaires")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# Recharger les tables depuis processed/
+# Chaque notebook est autonome — pas de dépendance mémoire
+items    = pd.read_csv('../data/processed/items_clean.csv')
+products = pd.read_csv('../data/processed/products_clean.csv')
+orders   = pd.read_csv('../data/processed/orders_clean.csv',
+                        parse_dates=['order_purchase_timestamp'])
+customers= pd.read_csv('../data/processed/customers_clean.csv')
+
+print(f"✓ items    : {items.shape}")
+print(f"✓ products : {products.shape}")
+print(f"✓ orders   : {orders.shape}")
+print(f"✓ customers: {customers.shape}")
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   EXPORT 1 — CA par catégorie (Bar Chart + Pareto)")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# Jointure items + products
+items_prod = items.merge(
+    products[['product_id',
+              'product_category_name_english']],
+    on='product_id',
+    how='left'
+)
+
+# CA = price + freight_value
+items_prod['revenue'] = items_prod['price'] + items_prod['freight_value']
+
+# Agrégation par catégorie
+ca_par_categorie = (items_prod
+    .groupby('product_category_name_english')
+    .agg(
+        ca_total    = ('revenue',   'sum'),
+        nb_ventes   = ('order_id',  'count'),
+        prix_moyen  = ('price',     'mean'),
+        prix_median = ('price',     'median')
+    )
+    .round(2)
+    .sort_values('ca_total', ascending=False)
+    .reset_index()
+)
+
+# Rang + % CA cumulé pour le Pareto
+ca_par_categorie['rang']         = range(1, len(ca_par_categorie)+1)
+ca_par_categorie['ca_pct']       = (
+    ca_par_categorie['ca_total'] /
+    ca_par_categorie['ca_total'].sum() * 100
+).round(2)
+ca_par_categorie['ca_cumul_pct'] = (
+    ca_par_categorie['ca_pct'].cumsum().round(2)
+)
+
+ca_par_categorie.to_csv('../data/exports/ca_par_categorie.csv', index=False)
+print(f"✓ ca_par_categorie.csv exporté — {len(ca_par_categorie)} catégories")
+print(f"\n--- Top 10 ---")
+print(ca_par_categorie[[
+    'product_category_name_english',
+    'ca_total', 'nb_ventes',
+    'rang', 'ca_cumul_pct'
+]].head(10).to_string(index=False))
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   EXPORT 2 — CA mensuel (Line Chart)")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+orders_items = orders.merge(
+    items[['order_id','price','freight_value']],
+    on='order_id', how='left'
+)
+orders_items['revenue']    = orders_items['price'] + orders_items['freight_value']
+orders_items['année_mois'] = (orders_items['order_purchase_timestamp']
+                               .dt.strftime('%Y-%m'))
+
+ca_mensuel = (orders_items
+    .groupby('année_mois')
+    .agg(
+        ca_total      = ('revenue',   'sum'),
+        nb_commandes  = ('order_id',  'nunique'),
+        panier_moyen  = ('revenue',   'mean')
+    )
+    .round(2)
+    .reset_index()
+    .sort_values('année_mois')
+)
+
+ca_mensuel.to_csv('../data/exports/ca_mensuel.csv', index=False)
+print(f"✓ ca_mensuel.csv exporté — {len(ca_mensuel)} mois")
+print(ca_mensuel.to_string(index=False))
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   EXPORT 3 — Commandes par état (Map)")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+commandes_etat = (orders
+    .merge(customers[['customer_id',
+                       'customer_unique_id',
+                       'customer_state']],
+           on='customer_id', how='left')
+    .groupby('customer_state')
+    .agg(
+        nb_commandes = ('order_id',          'count'),
+        nb_clients   = ('customer_unique_id', 'nunique'),
+        ca_total     = ('order_id',           'count')
+    )
+    .reset_index()
+    .sort_values('nb_commandes', ascending=False)
+)
+
+# Ajouter les noms complets des états pour Power BI Map
+noms_etats = {
+    'SP':'São Paulo','RJ':'Rio de Janeiro','MG':'Minas Gerais',
+    'RS':'Rio Grande do Sul','PR':'Paraná','SC':'Santa Catarina',
+    'BA':'Bahia','DF':'Distrito Federal','ES':'Espírito Santo',
+    'GO':'Goiás','PE':'Pernambuco','CE':'Ceará','MT':'Mato Grosso',
+    'MS':'Mato Grosso do Sul','MA':'Maranhão','PA':'Pará',
+    'AM':'Amazonas','RN':'Rio Grande do Norte','PI':'Piauí',
+    'AL':'Alagoas','PB':'Paraíba','SE':'Sergipe','TO':'Tocantins',
+    'RO':'Rondônia','AC':'Acre','AP':'Amapá','RR':'Roraima'
+}
+commandes_etat['estado_nome'] = (
+    commandes_etat['customer_state'].map(noms_etats)
+)
+
+commandes_etat.to_csv('../data/exports/commandes_par_etat.csv', index=False)
+print(f"✓ commandes_par_etat.csv exporté")
+print(commandes_etat.head(10).to_string(index=False))
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   EXPORT 4 — KPIs globaux (Cards)")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+rfm = pd.read_csv('../data/processed/olist_rfm.csv')
+
+kpis = {
+    'ca_total':           round(orders_items['revenue'].sum(), 2),
+    'nb_commandes':       orders['order_id'].nunique(),
+    'nb_clients':         customers['customer_unique_id'].nunique(),
+    'panier_moyen':       round(orders_items.groupby('order_id')
+                               ['revenue'].sum().mean(), 2),
+    'panier_median':      round(orders_items.groupby('order_id')
+                               ['revenue'].sum().median(), 2),
+    'taux_churn_pct':     round(rfm['is_churned'].mean() * 100, 1),
+    'taux_mono_achat_pct':round((rfm['frequency']==1).mean() * 100, 1),
+    'recency_mediane':    round(rfm['recency'].median(), 0),
+    'score_satisfaction': round(rfm['score_moyen'].mean(), 2),
+    'nb_categories':      ca_par_categorie['product_category_name_english'].nunique(),
+}
+
+kpis_df = pd.DataFrame(list(kpis.items()),
+                        columns=['kpi', 'valeur'])
+kpis_df.to_csv('../data/exports/kpis_globaux.csv', index=False)
+
+print(f"✓ kpis_globaux.csv exporté")
+print(f"\n{'KPI':<30} {'Valeur':>15}")
+print("-" * 47)
+for _, row in kpis_df.iterrows():
+    print(f"  {row['kpi']:<30} {row['valeur']:>15}")
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   RÉSUMÉ — FICHIERS EXPORTÉS POUR POWER BI")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+exports = [
+    ('ca_par_categorie.csv',   'Bar Chart Top 10 catégories + Pareto'),
+    ('ca_mensuel.csv',         'Line Chart évolution CA mensuel'),
+    ('commandes_par_etat.csv', 'Map + Bar Chart par état'),
+    ('kpis_globaux.csv',       'Cards KPIs principaux'),
+    ('rfm_dashboard.csv',      'Segments + Churn + Clusters'),
+]
+
+print(f"{'Fichier':<30} {'Utilisation Power BI'}")
+print("-" * 65)
+for fichier, usage in exports:
+    taille = os.path.getsize(f'../data/exports/{fichier}')
+    print(f"  {fichier:<30} {usage}")
+
+print(f"\n✓ {len(exports)} fichiers prêts dans data/exports/")
+print(f"\n→ Dans Power BI :")
+print(f"  Obtenir données → Texte/CSV → sélectionner chaque fichier")
+print(f"  Pas besoin de jointures complexes — tout est précalculé")
+
+--- 05_machine_learning.ipynb ---
+
+[CODE]
+# ============================================================
+# 06_machine_learning.ipynb — MACHINE LEARNING COMPLET
+# Source : data/processed/olist_features.csv
+# Cours activé : Cours 2 complet
+# ============================================================
+
+import sys
+sys.path.append('..')
+from src.utils import *
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import (classification_report,
+                              confusion_matrix,
+                              accuracy_score,
+                              roc_auc_score)
+from sklearn.cluster import KMeans
+import matplotlib.pyplot as plt
+import warnings
+warnings.filterwarnings('ignore')
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 1 — CHARGEMENT FEATURES")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+rfm      = pd.read_csv('../data/processed/olist_rfm.csv')
+features = pd.read_csv('../data/processed/olist_features.csv')
+
+print(f"✓ RFM          : {rfm.shape}")
+print(f"✓ Features ML  : {features.shape}")
+print(f"\n✓ Target is_churned :")
+print(f"  Churned  : {features['is_churned'].sum():,} "
+      f"({features['is_churned'].mean()*100:.1f}%)")
+print(f"  Actifs   : {(features['is_churned']==0).sum():,} "
+      f"({(features['is_churned']==0).mean()*100:.1f}%)")
+print(f"\n⚠️  Déséquilibre classes : 68.8% vs 31.2%")
+print(f"   → class_weight='balanced' dans les modèles")
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 2 — PRÉPARATION FEATURES — VERSION CORRIGÉE")
+print("   Correction data leakage : exclure recency + frequency")
+print("   Ces variables sont dans la définition de is_churned")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# Colonnes à exclure — identifiants + dérivés RFM + leakage
+cols_exclure = [
+    'customer_unique_id',
+    'mois_premier_achat',
+    'mois_dernier_achat',
+    'is_churned',           # target
+    'segment',              # dérivé RFM → leakage
+    'r_score',              # dérivé → leakage
+    'f_score',              # dérivé → leakage
+    'm_score',              # dérivé → leakage
+    'rfm_score',            # dérivé → leakage
+    'recency',              # dans définition is_churned → leakage
+    'frequency',            # dans définition is_churned → leakage
+]
+
+feature_cols = [c for c in features.columns
+                if c not in cols_exclure]
+
+X = features[feature_cols].copy()
+y = features['is_churned']
+
+# Imputation NaN
+for col in X.columns:
+    if X[col].isnull().sum() > 0:
+        if col.startswith('state_'):
+            X[col] = X[col].fillna(0)
+        else:
+            X[col] = X[col].fillna(X[col].median())
+
+# Vérification types
+non_num = X.select_dtypes(exclude=[np.number]).columns.tolist()
+for col in non_num:
+    X[col] = pd.to_numeric(X[col], errors='coerce').fillna(0)
+
+print(f"✓ Features après correction leakage : {len(feature_cols)}")
+print(f"✓ NaN restants : {X.isnull().sum().sum()}")
+print(f"\n✓ Features utilisées :")
+for i, col in enumerate(feature_cols, 1):
+    print(f"  {i:>2}. {col}")
+
+print(f"\n⚠️  recency et frequency exclus")
+print(f"   → Le modèle apprend maintenant de vrais patterns comportementaux")
+print(f"   → monetary, délai, satisfaction, paiement, géographie")
+
+print("\n" + "="*60)
+print("   ÉTAPE 3 — TRAIN / TEST SPLIT")
+print("   Cours 2 P2A — séparer avant tout traitement")
+print("   Règle : JAMAIS normaliser avant le split")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# stratify=y : garder le ratio 68.8/31.2 dans les deux sets
+# Sans stratify → un set peut avoir 80% churned, l'autre 60%
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y,
+    test_size=0.2,
+    random_state=42,
+    stratify=y
+)
+
+print(f"✓ Train : {X_train.shape[0]:,} lignes "
+      f"({X_train.shape[0]/len(X)*100:.0f}%)")
+print(f"✓ Test  : {X_test.shape[0]:,} lignes "
+      f"({X_test.shape[0]/len(X)*100:.0f}%)")
+print(f"\n✓ Vérification stratification :")
+print(f"  Train churned : {y_train.mean()*100:.1f}%")
+print(f"  Test  churned : {y_test.mean()*100:.1f}%")
+print(f"  → Ratio préservé dans les deux sets ✓")
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   ÉTAPE 4 — NORMALISATION (StandardScaler)")
+print("   Cours industriel — obligatoire pour LR")
+print("   Formule : z = (x - μ) / σ")
+print("   Fit sur train UNIQUEMENT → pas de data leakage")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+scaler = StandardScaler()
+
+# fit_transform sur train : apprend μ et σ depuis le train
+# transform sur test : applique les mêmes μ et σ du train
+# Si on fit sur tout → le test influence la normalisation = data leakage
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled  = scaler.transform(X_test)
+
+print(f"✓ StandardScaler appliqué")
+print(f"  fit sur train uniquement — pas de data leakage")
+
+# Vérification visuelle sur recency
+if 'recency' in feature_cols:
+    idx = feature_cols.index('recency')
+    print(f"\n  Recency avant scaling :")
+    print(f"    mean={X_train['recency'].mean():.0f}  "
+          f"std={X_train['recency'].std():.0f}")
+    print(f"  Recency après scaling :")
+    print(f"    mean={X_train_scaled[:,idx].mean():.3f}  "
+          f"std={X_train_scaled[:,idx].std():.3f}")
+    print(f"  → Centré à 0, écart-type 1 ✓")
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   MODÈLE 1 — LOGISTIC REGRESSION")
+print("   Cours 2 Partie 4A — classification binaire")
+print("   σ(z) = 1/(1+e^-z) → probabilité de churn")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+lr = LogisticRegression(
+    class_weight='balanced',  # compense 68.8% vs 31.2%
+    max_iter=1000,
+    random_state=42
+)
+
+lr.fit(X_train_scaled, y_train)
+
+y_pred_lr = lr.predict(X_test_scaled)
+y_prob_lr = lr.predict_proba(X_test_scaled)[:, 1]
+
+acc_lr = accuracy_score(y_test, y_pred_lr)
+auc_lr = roc_auc_score(y_test, y_prob_lr)
+
+print(f"✓ Logistic Regression entraînée")
+print(f"\n--- Métriques ---")
+print(f"  Accuracy  : {acc_lr*100:.1f}%")
+print(f"  AUC-ROC   : {auc_lr:.3f}")
+print(f"\n--- Rapport détaillé ---")
+print(classification_report(y_test, y_pred_lr,
+                             target_names=['Actif','Churned']))
+
+cm_lr = confusion_matrix(y_test, y_pred_lr)
+print(f"--- Matrice de confusion ---")
+print(f"  Vrais Actifs  (TN) : {cm_lr[0,0]:>6,}")
+print(f"  Faux Churned  (FP) : {cm_lr[0,1]:>6,}")
+print(f"  Faux Actifs   (FN) : {cm_lr[1,0]:>6,}")
+print(f"  Vrais Churned (TP) : {cm_lr[1,1]:>6,}")
+
+print(f"\n⚠️  Rappel Cours 2 : accuracy seule ne suffit pas")
+print(f"   Sur données déséquilibrées → F1-score et AUC sont fiables")
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   MODÈLE 2 — RANDOM FOREST")
+print("   100 arbres — vote majoritaire")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# Random Forest n'a pas besoin de normalisation
+# Les arbres de décision sont insensibles aux échelles
+rf = RandomForestClassifier(
+    n_estimators=100,
+    class_weight='balanced',
+    random_state=42,
+    n_jobs=-1
+)
+
+rf.fit(X_train, y_train)
+
+y_pred_rf = rf.predict(X_test)
+y_prob_rf = rf.predict_proba(X_test)[:, 1]
+
+acc_rf = accuracy_score(y_test, y_pred_rf)
+auc_rf = roc_auc_score(y_test, y_prob_rf)
+
+print(f"✓ Random Forest entraîné (100 arbres)")
+print(f"\n--- Métriques ---")
+print(f"  Accuracy  : {acc_rf*100:.1f}%")
+print(f"  AUC-ROC   : {auc_rf:.3f}")
+print(f"\n--- Rapport détaillé ---")
+print(classification_report(y_test, y_pred_rf,
+                             target_names=['Actif','Churned']))
+
+# Feature Importance
+importances = pd.DataFrame({
+    'feature':    feature_cols,
+    'importance': rf.feature_importances_
+}).sort_values('importance', ascending=False)
+
+print(f"\n--- Top 10 features prédictives ---")
+print(importances.head(10).to_string(index=False))
+
+# Visualisation
+import os
+os.makedirs('../reports/figures', exist_ok=True)
+
+fig, ax = plt.subplots(figsize=(10, 6))
+top10 = importances.head(10)
+ax.barh(top10['feature'], top10['importance'],
+        color='#1D9E75', alpha=0.85)
+ax.invert_yaxis()
+ax.set_title('Random Forest — Feature Importance (Top 10)', fontsize=13)
+ax.set_xlabel('Importance')
+plt.tight_layout()
+plt.savefig('../reports/figures/13_feature_importance.png', dpi=150)
+plt.show()
+print("✓ Figure sauvegardée : 13_feature_importance.png")
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   COMPARAISON MODÈLES 1 vs 2")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+print(f"  {'Modèle':<25} | {'Accuracy':>9} | {'AUC-ROC':>8}")
+print(f"  {'-'*50}")
+print(f"  {'Logistic Regression':<25} | "
+      f"{acc_lr*100:>8.1f}% | {auc_lr:>8.3f}")
+print(f"  {'Random Forest':<25} | "
+      f"{acc_rf*100:>8.1f}% | {auc_rf:>8.3f}")
+
+meilleur = "Random Forest" if auc_rf > auc_lr else "Logistic Regression"
+print(f"\n✓ Meilleur modèle AUC : {meilleur}")
+print(f"\n  Pourquoi AUC et pas Accuracy ?")
+print(f"  → Accuracy trompeuse sur données déséquilibrées")
+print(f"  → Un modèle qui prédit tout 'churned' aurait 68.8% accuracy")
+print(f"  → AUC mesure la vraie capacité de discrimination")
+print(f"  → AUC=0.5 → aléatoire | AUC=1.0 → parfait")
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   MODÈLE 3 — K-MEANS CLUSTERING")
+print("   Valider algorithmiquement nos segments RFM")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+# Préparer les données RFM pour clustering
+rfm_cluster = rfm[['recency','frequency','monetary']].copy()
+
+# Min-Max scaling pour K-Means
+# K-Means sensible aux échelles — recency (0-800) vs frequency (1-10)
+scaler_mm = MinMaxScaler()
+rfm_scaled = scaler_mm.fit_transform(rfm_cluster)
+
+# Méthode Elbow — trouver k optimal
+print("--- Méthode Elbow ---")
+inertias = []
+k_range  = range(2, 10)
+
+for k in k_range:
+    km = KMeans(n_clusters=k, random_state=42, n_init=10)
+    km.fit(rfm_scaled)
+    inertias.append(km.inertia_)
+    print(f"  k={k} → inertie={km.inertia_:.2f}")
+
+fig, ax = plt.subplots(figsize=(10, 5))
+ax.plot(k_range, inertias, marker='o',
+        color='#534AB7', linewidth=2, markersize=8)
+ax.set_title('Méthode Elbow — Choix du nombre de clusters', fontsize=13)
+ax.set_xlabel('Nombre de clusters (k)')
+ax.set_ylabel('Inertie')
+ax.grid(alpha=0.3)
+plt.tight_layout()
+plt.savefig('../reports/figures/14_elbow_kmeans.png', dpi=150)
+plt.show()
+print("✓ Figure sauvegardée : 14_elbow_kmeans.png")
+print(f"\n→ Observe le coude dans le graphique")
+print(f"  C'est là où rajouter un cluster n'apporte plus grand chose")
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   K-MEANS FINAL — k=4")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+km_final = KMeans(n_clusters=4, random_state=42, n_init=10)
+rfm['cluster'] = km_final.fit_predict(rfm_scaled)
+
+# Profil des clusters
+cluster_profile = rfm.groupby('cluster').agg(
+    nb_clients   = ('customer_unique_id', 'count'),
+    recency_moy  = ('recency', 'mean'),
+    freq_moy     = ('frequency', 'mean'),
+    monetary_moy = ('monetary', 'mean'),
+).round(1).reset_index()
+
+print(f"✓ 4 clusters calculés")
+print(f"\n--- Profil des clusters ---")
+print(cluster_profile.to_string(index=False))
+
+# Nommer les clusters selon profil RFM
+def nommer_cluster(row):
+    if row['recency_moy'] < 100 and row['monetary_moy'] > 200:
+        return 'Champions'
+    elif row['recency_moy'] < 200 and row['freq_moy'] > 1.5:
+        return 'Fidèles'
+    elif row['recency_moy'] > 300:
+        return 'Perdus'
+    else:
+        return 'À risque'
+
+cluster_profile['nom'] = cluster_profile.apply(nommer_cluster, axis=1)
+
+# Mapper les noms sur rfm
+nom_map = cluster_profile.set_index('cluster')['nom'].to_dict()
+rfm['cluster_nom'] = rfm['cluster'].map(nom_map)
+
+print(f"\n--- Nommage des clusters ---")
+for _, row in cluster_profile.iterrows():
+    print(f"  Cluster {int(row['cluster'])} → {row['nom']:<15} "
+          f"({int(row['nb_clients']):,} clients)")
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   MODÈLE 4 — FORECAST VENTES")
+print("   Cours 2 Partie 3A — time series")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+try:
+    from prophet import Prophet
+
+    orders_ts = pd.read_csv('../data/processed/orders_clean.csv',
+                             parse_dates=['order_purchase_timestamp'])
+    items_ts  = pd.read_csv('../data/processed/items_clean.csv')
+
+    orders_items_ts = orders_ts.merge(
+        items_ts[['order_id','price','freight_value']],
+        on='order_id', how='left'
+    )
+    orders_items_ts['revenue'] = (orders_items_ts['price'] +
+                                   orders_items_ts['freight_value'])
+    orders_items_ts['date'] = (orders_items_ts['order_purchase_timestamp']
+                                .dt.date)
+
+    ca_daily = (orders_items_ts
+                .groupby('date')['revenue']
+                .sum()
+                .reset_index())
+    ca_daily.columns = ['ds', 'y']
+    ca_daily['ds'] = pd.to_datetime(ca_daily['ds'])
+
+    print(f"✓ Série temporelle : {len(ca_daily)} jours")
+
+    model_prophet = Prophet(
+        yearly_seasonality=True,
+        weekly_seasonality=True,
+        daily_seasonality=False,
+        changepoint_prior_scale=0.05
+    )
+    model_prophet.fit(ca_daily)
+
+    future   = model_prophet.make_future_dataframe(periods=90)
+    forecast = model_prophet.predict(future)
+
+    fig = model_prophet.plot(forecast, figsize=(14, 5))
+    plt.title('Forecast CA — Prophet (90 jours)', fontsize=13)
+    plt.tight_layout()
+    plt.savefig('../reports/figures/15_forecast_prophet.png', dpi=150)
+    plt.show()
+    print("✓ Figure sauvegardée : 15_forecast_prophet.png")
+
+    future_only = forecast[
+        forecast['ds'] > ca_daily['ds'].max()
+    ][['ds','yhat','yhat_lower','yhat_upper']].head(30)
+
+    print(f"\n--- Prédictions 30 premiers jours ---")
+    print(future_only.to_string(index=False))
+
+    ca_90j = forecast[forecast['ds'] > ca_daily['ds'].max()]['yhat'].sum()
+    print(f"\n✓ CA prédit sur 90 jours : {ca_90j:,.0f} BRL")
+
+except ImportError:
+    print("⚠️  Prophet non installé — alternative : régression linéaire")
+    print("   Pour installer : pip install prophet")
+
+    from sklearn.linear_model import LinearRegression
+
+    orders_ts = pd.read_csv('../data/processed/orders_clean.csv',
+                             parse_dates=['order_purchase_timestamp'])
+    items_ts  = pd.read_csv('../data/processed/items_clean.csv')
+
+    orders_items_ts = orders_ts.merge(
+        items_ts[['order_id','price','freight_value']],
+        on='order_id', how='left'
+    )
+    orders_items_ts['revenue'] = (orders_items_ts['price'] +
+                                   orders_items_ts['freight_value'])
+    orders_items_ts['month_num'] = (
+        (orders_items_ts['order_purchase_timestamp'].dt.year - 2016) * 12 +
+         orders_items_ts['order_purchase_timestamp'].dt.month
+    )
+
+    ca_monthly = (orders_items_ts
+                  .groupby('month_num')['revenue']
+                  .sum()
+                  .reset_index())
+
+    lr_ts = LinearRegression()
+    lr_ts.fit(ca_monthly[['month_num']], ca_monthly['revenue'])
+
+    last_month  = ca_monthly['month_num'].max()
+    next_months = pd.DataFrame({
+        'month_num': [last_month+1, last_month+2, last_month+3]
+    })
+    preds = lr_ts.predict(next_months)
+
+    print(f"\n✓ CA prédit (régression linéaire) :")
+    for i, p in enumerate(preds, 1):
+        print(f"  Mois +{i} : {p:,.0f} BRL")
+
+    # Visualisation
+    fig, ax = plt.subplots(figsize=(12, 5))
+    ax.plot(ca_monthly['month_num'], ca_monthly['revenue'],
+            color='#1D9E75', marker='o', label='Historique')
+    ax.plot(next_months['month_num'], preds,
+            color='#E63946', marker='s',
+            linestyle='--', label='Prévision')
+    ax.set_title('Forecast CA — Régression Linéaire', fontsize=13)
+    ax.set_xlabel('Mois (depuis Jan 2016)')
+    ax.set_ylabel('CA (BRL)')
+    ax.legend()
+    plt.tight_layout()
+    plt.savefig('../reports/figures/15_forecast_lineaire.png', dpi=150)
+    plt.show()
+    print("✓ Figure sauvegardée : 15_forecast_lineaire.png")
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   EXPORT FINAL — RFM + CLUSTERS")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+os.makedirs('../data/exports', exist_ok=True)
+
+# Export RFM complet avec clusters pour Power BI
+rfm.to_csv('../data/processed/olist_rfm.csv', index=False)
+print(f"✓ olist_rfm.csv mis à jour avec clusters")
+
+rfm[['customer_unique_id','recency','frequency',
+     'monetary','rfm_score','segment','cluster',
+     'cluster_nom','is_churned',
+     'panier_moyen','delai_moyen','score_moyen',
+     'customer_state']].to_csv(
+    '../data/exports/rfm_dashboard.csv', index=False)
+print(f"✓ rfm_dashboard.csv → data/exports/ (Power BI)")
+
+
+# -------------------------------------------------------
+print("\n" + "="*60)
+print("   RAPPORT FINAL — TOUS LES MODÈLES")
+print("="*60 + "\n")
+# -------------------------------------------------------
+
+print(f"{'='*55}")
+print(f"  RÉCAPITULATIF ML — OLIST")
+print(f"{'='*55}")
+
+print(f"\n  1. CLASSIFICATION CHURN")
+print(f"  {'Modèle':<25} | {'Accuracy':>9} | {'AUC':>8}")
+print(f"  {'-'*48}")
+print(f"  {'Logistic Regression':<25} | "
+      f"{acc_lr*100:>8.1f}% | {auc_lr:>8.3f}")
+print(f"  {'Random Forest':<25} | "
+      f"{acc_rf*100:>8.1f}% | {auc_rf:>8.3f}")
+print(f"  Meilleur : {meilleur}")
+
+print(f"\n  2. SEGMENTATION K-MEANS (k=4)")
+for _, row in cluster_profile.iterrows():
+    print(f"  Cluster {int(row['cluster'])} — {row['nom']:<12} : "
+          f"{int(row['nb_clients']):>7,} clients | "
+          f"recency={row['recency_moy']:.0f}j | "
+          f"CA={row['monetary_moy']:.0f} BRL")
+
+print(f"\n  3. TOP 5 FEATURES CHURN (Random Forest)")
+for _, row in importances.head(5).iterrows():
+    print(f"  {row['feature']:<25} : {row['importance']:.4f}")
+
+print(f"\n  4. INSIGHTS BUSINESS CLÉS")
+insights = [
+    "68.8% clients churned — problème structurel de rétention",
+    "Recency = feature #1 du churn — le temps tue la fidélité",
+    "96.9% mono-achat — acquisition forte, rétention quasi nulle",
+    "SP = 42% des commandes — marché principal à défendre",
+    "Score satisfaction 77% positif mais ne suffit pas à retenir"
+]
+for i, ins in enumerate(insights, 1):
+    print(f"  {i}. {ins}")
+
+print(f"\n✓ Figures ML dans reports/figures/")
+print("\n" + "="*60)
+print("   ✓ MILESTONE 4 — MACHINE LEARNING TERMINÉ")
+print("   → Prochain : Power BI Dashboard")
+print("   → Puis     : Test + Présentation finale")
+print("="*60)

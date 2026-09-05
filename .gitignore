@@ -1,0 +1,41 @@
+# Local project data
+data/raw/
+data/processed/
+data/exports/
+
+# Raw datasets and exports
+*.csv
+*.parquet
+*.xlsx
+*.xls
+*.json
+*.pbix
+*.pbit
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+*.ipynb_checkpoints/
+
+# Environment and secrets
+.env
+.env.*
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
