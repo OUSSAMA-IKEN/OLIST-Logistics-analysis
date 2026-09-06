@@ -156,7 +156,6 @@ def detecter_outliers_zscore(df, colonne, seuil=3):
 def plot_boxplot_hist(df, colonne, save_path=None, xlim=None):
     """
     Trace boxplot + histogramme côte à côte pour une colonne.
-    Cours 1 P2A (boxplot) + P2B (histogramme).
     Utilisé dans : 01_data_cleaning, 02_eda
     """
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
