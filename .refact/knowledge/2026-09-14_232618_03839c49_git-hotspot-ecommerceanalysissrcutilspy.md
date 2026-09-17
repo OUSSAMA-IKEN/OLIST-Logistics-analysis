@@ -6,7 +6,7 @@ tags:
 - git
 - hotspot
 created: 2026-09-14
-updated: 2026-09-14
+updated: 2026-09-17
 filenames:
 - ecommerce-analysis/src/utils.py
 links: []
@@ -14,7 +14,7 @@ kind: code
 status: proposed
 superseded_by: null
 deprecated_at: null
-review_after: 2026-09-14
+review_after: 2026-09-17
 source_chat_id: null
 created_at: 2026-09-14T22:26:18.167033700+00:00
 summary: null
