@@ -6,7 +6,7 @@ tags:
 - git
 - hotspot
 created: 2026-09-14
-updated: 2026-09-22
+updated: 2026-09-23
 filenames:
 - ecommerce-analysis/notebooks/03_eda___.ipynb
 links: []
@@ -14,7 +14,7 @@ kind: code
 status: proposed
 superseded_by: null
 deprecated_at: null
-review_after: 2026-09-22
+review_after: 2026-09-23
 source_chat_id: null
 created_at: 2026-09-14T22:26:18.250949500+00:00
 summary: null

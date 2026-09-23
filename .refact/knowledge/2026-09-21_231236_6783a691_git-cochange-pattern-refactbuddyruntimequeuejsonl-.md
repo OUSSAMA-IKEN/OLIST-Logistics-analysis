@@ -6,7 +6,7 @@ tags:
 - git
 - pattern
 created: 2026-09-21
-updated: 2026-09-22
+updated: 2026-09-23
 filenames:
 - .refact/buddy/runtime_queue.jsonl
 - .refact/knowledge/2026-09-18_155145_c250b552_git-cochange-pattern-refactbuddymemoryopsjsonl-ref.md
@@ -15,7 +15,7 @@ kind: pattern
 status: proposed
 superseded_by: null
 deprecated_at: null
-review_after: 2026-09-22
+review_after: 2026-09-23
 source_chat_id: null
 created_at: 2026-09-21T23:12:36.774691100+00:00
 summary: null

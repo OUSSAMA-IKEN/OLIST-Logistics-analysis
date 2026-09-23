@@ -6,7 +6,7 @@ tags:
 - git
 - hotspot
 created: 2026-09-22
-updated: 2026-09-22
+updated: 2026-09-23
 filenames:
 - .refact/buddy/runtime_queue.jsonl
 links: []
@@ -14,7 +14,7 @@ kind: code
 status: proposed
 superseded_by: null
 deprecated_at: null
-review_after: 2026-09-22
+review_after: 2026-09-23
 source_chat_id: null
 created_at: 2026-09-22T22:31:06.791459300+00:00
 summary: null
